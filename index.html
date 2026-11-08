@@ -1,0 +1,3072 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Abraham Lincoln: Vampire Hunter - Space Techno Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Cinzel+Decorative:wght@700;900&display=swap');
+        
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #030108;
+            color: #ffffff;
+            font-family: 'Orbitron', sans-serif;
+            overflow: hidden;
+            touch-action: none;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        .gothic-title {
+            font-family: 'Cinzel Decorative', cursive;
+            text-shadow: 0 0 15px #ff0055, 0 0 30px #7928ca, 0 0 50px #00f0ff;
+        }
+        .cyber-panel {
+            background: rgba(8, 5, 20, 0.85);
+            border: 1px solid rgba(0, 240, 255, 0.35);
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.15), inset 0 0 15px rgba(121, 40, 202, 0.2);
+            backdrop-filter: blur(8px);
+        }
+        .arcade-btn {
+            backdrop-filter: blur(6px);
+            transition: transform 0.06s ease, box-shadow 0.06s ease;
+            box-shadow: 0 0 18px rgba(0, 0, 0, 0.7), inset 0 2px 4px rgba(255, 255, 255, 0.35);
+        }
+        .arcade-btn:active, .arcade-btn.active-press {
+            transform: scale(0.90);
+            filter: brightness(1.35);
+        }
+        @keyframes pulseBorder {
+            0%, 100% { box-shadow: inset 0 0 40px #ff007f, inset 0 0 80px #00f0ff; }
+            50% { box-shadow: inset 0 0 70px #7928ca, inset 0 0 120px #ffea00; }
+        }
+        .kaleidoscope-border {
+            animation: pulseBorder 0.5s infinite ease-in-out;
+        }
+        @media screen and (orientation: portrait) and (max-width: 768px) {
+            #rotatePrompt { display: flex !important; }
+        }
+    </style>
+</head>
+<body class="relative w-screen h-[100dvh] overflow-hidden select-none">
+
+    <!-- Main Game Canvas -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Invincibility Kaleidoscope Screen Overlay -->
+    <div id="psychedelicOverlay" class="pointer-events-none fixed inset-0 hidden z-10 kaleidoscope-border"></div>
+
+    <!-- Rotate Device Prompt (Mobile Portrait) -->
+    <div id="rotatePrompt" class="hidden fixed inset-0 bg-slate-950/95 z-50 flex-col items-center justify-center p-6 text-center pointer-events-none">
+        <div class="text-5xl mb-3 animate-bounce">📱🔄</div>
+        <h2 class="text-lg font-black text-cyan-400 tracking-wider mb-1">ROTATE PHONE SIDEWAYS</h2>
+        <p class="text-xs text-slate-300 max-w-xs">Landscape orientation is recommended for floating arcade controls (Tap Start behind to play anytime).</p>
+    </div>
+
+    <!-- Top HUD -->
+    <div id="hud" class="fixed top-0 left-0 w-full px-3 py-2 md:p-4 flex justify-between items-start pointer-events-none z-20">
+        <!-- Left Stats: Health & Potion Meter -->
+        <div class="flex flex-col gap-1.5 pointer-events-auto">
+            <div class="cyber-panel px-3 py-1.5 rounded-xl flex items-center gap-3">
+                <div class="flex flex-col">
+                    <div class="flex items-center justify-between gap-3 mb-0.5">
+                        <span class="text-[10px] font-bold tracking-widest text-cyan-400">ABRAHAM LINCOLN</span>
+                        <span id="healthText" class="text-[10px] font-mono text-emerald-300 font-bold">100 / 100</span>
+                    </div>
+                    <div class="w-36 md:w-52 h-2.5 bg-slate-900 rounded-full overflow-hidden border border-cyan-500/40 p-0.5">
+                        <div id="healthBar" class="h-full bg-gradient-to-r from-rose-600 via-amber-400 to-emerald-400 rounded-full transition-all duration-150" style="width: 100%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Potion Special Bar -->
+            <div class="cyber-panel px-3 py-1 rounded-xl flex items-center gap-2.5">
+                <span class="text-[9px] font-bold tracking-widest text-fuchsia-400">UNICORN [Y/E]</span>
+                <div class="w-24 md:w-36 h-2 bg-slate-900 rounded-full overflow-hidden border border-fuchsia-500/40">
+                    <div id="potionBar" class="h-full bg-gradient-to-r from-fuchsia-600 via-purple-400 to-cyan-300 w-full transition-all duration-75"></div>
+                </div>
+                <span id="potionStatus" class="text-[9px] font-extrabold text-emerald-300 animate-pulse">READY!</span>
+            </div>
+
+            <!-- Base Gun & 10s Special Weapon Status -->
+            <div class="cyber-panel px-3 py-1 rounded-xl flex flex-col gap-1">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-[8px] font-bold tracking-widest text-amber-400">ARMORY // <span id="checkpointText" class="text-cyan-300">NEXT CP: 1000m</span></span>
+                    <span id="baseGunLabel" class="text-[9px] font-black text-white">LVL 1: PLASMA BLUNDERBUSS</span>
+                </div>
+                <!-- 10-Second Temporary Special Weapon Bar (Shown when crate touched) -->
+                <div id="tempWeaponHud" class="hidden flex-col gap-0.5 pt-0.5 border-t border-white/10">
+                    <div class="flex items-center justify-between gap-2">
+                        <span id="tempWeaponName" class="text-[9px] font-black text-amber-300 animate-pulse">GRENADE LAUNCHER</span>
+                        <span id="tempWeaponTime" class="text-[9px] font-mono font-bold text-white">10.0s</span>
+                    </div>
+                    <div class="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden border border-amber-400/50">
+                        <div id="tempWeaponBar" class="h-full bg-gradient-to-r from-amber-500 via-orange-400 to-yellow-300 w-full"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center Status / Invincible & Checkpoint Banners -->
+        <div class="flex flex-col items-center gap-1.5">
+            <div id="invincibleBanner" class="hidden flex-col items-center bg-gradient-to-r from-fuchsia-600/90 via-purple-600/90 to-cyan-500/90 px-4 py-1 rounded-full border border-white/60 shadow-[0_0_30px_#ff007f]">
+                <div class="text-[11px] md:text-sm font-black tracking-widest text-white drop-shadow">🦄 FLYING UNICORN OVERDRIVE ⚡</div>
+                <div id="invincibleCountdown" class="text-[10px] font-mono font-bold text-yellow-200">15.0s</div>
+            </div>
+            <div id="checkpointBanner" class="hidden flex-col items-center bg-gradient-to-r from-emerald-600/95 via-cyan-600/95 to-blue-600/95 px-4 py-1 rounded-full border border-emerald-200 shadow-[0_0_25px_#00f0ff]">
+                <div id="checkpointBannerTitle" class="text-[10px] md:text-xs font-black tracking-widest text-white">⚡ CHECKPOINT REACHED! BASE GUN UPGRADED ⚡</div>
+                <div id="checkpointBannerSub" class="text-[9px] font-mono font-bold text-amber-200">LVL 2: TWIN-LINKED RAIL REPEATER</div>
+            </div>
+        </div>
+
+        <!-- Right Stats: Score & Gamepad Indicator -->
+        <div class="flex items-start gap-2 pointer-events-auto">
+            <div id="gamepadBadge" class="cyber-panel px-2.5 py-1.5 rounded-xl flex items-center gap-1.5 text-xs">
+                <span id="gamepadDot" class="w-2 h-2 rounded-full bg-slate-500"></span>
+                <span id="gamepadLabel" class="hidden sm:inline text-[9px] text-slate-400 font-bold">NO PAD</span>
+            </div>
+
+            <div class="cyber-panel px-3 py-1 rounded-xl text-right">
+                <div class="text-[8px] text-amber-400 font-bold tracking-widest">VAMPIRES SLAIN / SCORE</div>
+                <div id="scoreDisplay" class="text-base md:text-2xl font-black font-mono text-white tracking-wider">000000</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Landscape Touch Controls (Safe bottom offset so mobile browser bars never clip) -->
+    <div id="touch-layer" class="fixed inset-x-0 bottom-[18px] top-0 pointer-events-none z-20 flex justify-between items-end px-5 pb-2 md:p-8">
+        <!-- Left Side: 360-Degree Floating Virtual Joystick -->
+        <div id="dpadZone" class="relative w-32 h-32 sm:w-36 sm:h-36 md:w-44 md:h-44 rounded-full bg-slate-900/55 border-2 border-cyan-500/45 backdrop-blur-md pointer-events-auto flex items-center justify-center shadow-[0_0_25px_rgba(0,240,255,0.2)]">
+            <div class="absolute inset-2 rounded-full border border-dashed border-cyan-400/25 pointer-events-none"></div>
+            <span class="absolute left-2.5 text-cyan-400/70 font-black text-base pointer-events-none">◀</span>
+            <span class="absolute right-2.5 text-cyan-400/70 font-black text-base pointer-events-none">▶</span>
+            <span class="absolute top-1.5 text-cyan-400/50 font-black text-xs pointer-events-none">▲</span>
+            <span class="absolute bottom-1.5 text-cyan-400/50 font-black text-xs pointer-events-none">▼</span>
+            <div id="stickNub" class="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-cyan-400 to-blue-700 border-2 border-white shadow-[0_0_15px_#00f0ff] transition-transform duration-75 pointer-events-none flex items-center justify-center">
+                <div class="w-4 h-4 rounded-full bg-white/40"></div>
+            </div>
+        </div>
+
+        <!-- Right Side: Ergonomic Diamond Arcade Layout -->
+        <div class="relative w-40 h-40 sm:w-44 sm:h-44 md:w-52 md:h-52 pointer-events-auto">
+            <!-- TOP (Y): 15s FLYING UNICORN SPECIAL -->
+            <button id="btnSpecial" type="button" class="arcade-btn absolute top-0 left-1/2 -translate-x-1/2 w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-fuchsia-500 to-purple-800 border-2 border-fuchsia-300 flex flex-col items-center justify-center text-white">
+                <span class="text-xs font-black leading-none">Y</span>
+                <span class="text-[7px] font-bold tracking-tighter text-fuchsia-200">UNICORN</span>
+                <svg class="absolute inset-0 w-full h-full -rotate-90 pointer-events-none" viewBox="0 0 36 36">
+                    <circle id="specialRing" cx="18" cy="18" r="16" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-dasharray="100, 100" stroke-dashoffset="0"></circle>
+                </svg>
+            </button>
+
+            <!-- LEFT (X): PLASMA SHOOT -->
+            <button id="btnShoot" type="button" class="arcade-btn absolute left-0 top-1/2 -translate-y-1/2 w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-rose-500 to-red-800 border-2 border-rose-300 flex flex-col items-center justify-center text-white">
+                <span class="text-xs font-black leading-none">X</span>
+                <span class="text-[8px] font-bold tracking-tighter text-rose-200">SHOOT</span>
+            </button>
+
+            <!-- RIGHT (B): EVASIVE ROLL -->
+            <button id="btnRoll" type="button" class="arcade-btn absolute right-0 top-1/2 -translate-y-1/2 w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-amber-500 to-orange-700 border-2 border-amber-300 flex flex-col items-center justify-center text-white">
+                <span class="text-xs font-black leading-none">B</span>
+                <span class="text-[8px] font-bold tracking-tighter text-amber-100">ROLL</span>
+            </button>
+
+            <!-- BOTTOM (A): JUMP / DOUBLE JUMP -->
+            <button id="btnJump" type="button" class="arcade-btn absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-emerald-500 to-teal-800 border-2 border-emerald-300 flex flex-col items-center justify-center text-white">
+                <span class="text-xs font-black leading-none">A</span>
+                <span class="text-[8px] font-bold tracking-tighter text-emerald-100">JUMP</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Ultra-Compact Landscape Start / Game Over Overlay (Zero Vertical Overflow on Short Screens) -->
+    <div id="menu-overlay" onclick="window.startGame(event)" ontouchstart="window.startGame(event)" class="fixed inset-0 bg-slate-950/85 backdrop-blur-xl z-40 flex items-center justify-center p-2 sm:p-4 cursor-pointer pointer-events-auto">
+        <div id="menu-card" class="w-full max-w-xl max-h-[85dvh] cyber-panel rounded-2xl px-4 py-3 sm:px-6 sm:py-5 border border-cyan-400/50 flex flex-col items-center justify-between text-center gap-2 sm:gap-3 shadow-[0_0_40px_rgba(0,240,255,0.25)]">
+            
+            <!-- Compact Header -->
+            <div>
+                <div class="text-[9px] sm:text-[10px] font-bold tracking-[0.25em] text-fuchsia-400">1865 AD // NEBULA SECTOR DC-9</div>
+                <h1 id="menuTitle" class="text-lg sm:text-2xl md:text-4xl font-black gothic-title text-white leading-tight">
+                    ABRAHAM LINCOLN: <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-fuchsia-400 to-rose-500">SPACE VAMPIRE HUNTER</span>
+                </h1>
+                <p id="menuSubtitle" class="text-[10px] sm:text-xs text-slate-300 max-w-md mx-auto mt-0.5 leading-snug">
+                    Summon your <b class="text-fuchsia-300">Flying Cosmic Unicorn</b> for 15s of 360° flight, tri-beam horn lasers &amp; touch crates for 10s heavy weapons!
+                </p>
+            </div>
+
+            <!-- Big Unmissable Dead-Center Start Button -->
+            <div class="w-full flex items-center justify-center my-0.5">
+                <button id="start-btn" type="button" onclick="window.startGame(event)" ontouchstart="window.startGame(event)" class="w-full max-w-md py-3 sm:py-4 px-6 rounded-xl font-black text-sm sm:text-lg tracking-widest text-white bg-gradient-to-r from-cyan-500 via-blue-600 to-fuchsia-600 hover:brightness-125 border-2 border-white/70 shadow-[0_0_30px_rgba(0,240,255,0.75)] active:scale-95 transition cursor-pointer">
+                    ▶ TAP HERE TO START
+                </button>
+            </div>
+
+            <!-- Single-Line Control Strip (Never Pushes Content Off Screen) -->
+            <div class="w-full bg-slate-900/90 border border-cyan-500/30 rounded-lg px-2.5 py-1.5 text-[9px] sm:text-[11px] text-slate-200 font-semibold tracking-wide leading-tight">
+                <span class="text-cyan-400 font-bold">Left Pad / WASD:</span> Move &amp; Fly &nbsp;|&nbsp;
+                <span class="text-emerald-400 font-bold">A / Space:</span> Jump &nbsp;|&nbsp;
+                <span class="text-rose-400 font-bold">X / Z:</span> Plasma &nbsp;|&nbsp;
+                <span class="text-amber-400 font-bold">B / Shift:</span> Roll &nbsp;|&nbsp;
+                <span class="text-fuchsia-400 font-bold">Y / E:</span> 15s Cosmic Unicorn
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* ============================================================================
+         * 0. TOP-LEVEL GLOBAL START FUNCTION (GUARANTEED ACCESSIBLE IMMEDIATELY)
+         * ============================================================================ */
+        let gameState = 'MENU';
+        let lastStartTimestamp = 0;
+
+        window.startGame = function(e) {
+            const menu = document.getElementById('menu-overlay');
+            if (menu) menu.style.setProperty('display', 'none', 'important');
+            if (menu) menu.style.pointerEvents = 'none';
+
+            const now = performance.now();
+            if (gameState === 'PLAYING' && (now - lastStartTimestamp < 300)) return;
+            lastStartTimestamp = now;
+            gameState = 'PLAYING';
+
+            if (e && e.cancelable) {
+                try { e.preventDefault(); } catch (err) {}
+            }
+            if (e && e.stopPropagation) {
+                try { e.stopPropagation(); } catch (err) {}
+            }
+
+            try {
+                const touchLayer = document.getElementById('touch-layer');
+                if (touchLayer) touchLayer.style.pointerEvents = 'none';
+
+                if (typeof platformChunks !== 'undefined') platformChunks.clear();
+                if (typeof AbrahamLincoln !== 'undefined') player = new AbrahamLincoln();
+                playerBullets = [];
+                enemyProjectiles = [];
+                vampires = [];
+                particles = [];
+                shellCasings = [];
+                scorePopups = [];
+                weaponCrates = [];
+                activeExplosions = [];
+                lightningArcs = [];
+                checkpointPillars = [];
+                score = 0;
+                cameraX = 0;
+                nextCheckpointDist = 1000;
+                checkpointBannerTimer = 0;
+                spawnCounter = 45;
+                crateSpawnCounter = 260;
+
+                // Spawn a Guaranteed Grenade Launcher crate right ahead at x = 450 so the player can touch & test it immediately!
+                if (typeof spawnWeaponCrate === 'function') {
+                    spawnWeaponCrate(450, getGroundY() - 56, 'GRENADE_LAUNCHER');
+                }
+                if (typeof resetDpad === 'function') resetDpad();
+                if (typeof updateHUD === 'function') updateHUD();
+            } catch (err) {
+                console.error('Entity reset error:', err);
+            }
+
+            try {
+                if (typeof gameLoop === 'function') {
+                    requestAnimationFrame(gameLoop);
+                }
+            } catch (err) {
+                console.error('GameLoop launch error:', err);
+            }
+
+            try {
+                if (typeof sound !== 'undefined' && sound) {
+                    sound.overdrive = false;
+                    sound.start();
+                }
+            } catch (err) {
+                console.warn('Web Audio deferred:', err);
+            }
+        };
+
+        /* ============================================================================
+         * 1. PROCEDURAL SPACE-TECHNO SYNTHESIZER (SAFE NON-BLOCKING WEB AUDIO API)
+         * ============================================================================ */
+        class SpaceTechnoAudio {
+            constructor() {
+                this.ctx = null;
+                this.isPlaying = false;
+                this.overdrive = false;
+                this.tempo = 138;
+                this.step = 0;
+                this.nextNoteTime = 0;
+                this.timerId = null;
+
+                // Hypnotic D-minor Phrygian Acid & Space Arp patterns
+                this.bassNotes = [38, 38, 50, 38, 41, 38, 45, 46, 38, 38, 53, 38, 50, 46, 45, 41];
+                this.arpNotes  = [62, 65, 69, 74, 77, 74, 69, 65, 62, 68, 70, 74, 80, 74, 70, 68];
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioCtx();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            mtof(midi) {
+                return 440 * Math.pow(2, (midi - 69) / 12);
+            }
+
+            start() {
+                this.init();
+                if (this.isPlaying) return;
+                this.isPlaying = true;
+                this.step = 0;
+                this.nextNoteTime = this.ctx.currentTime + 0.05;
+                this.timerId = setInterval(() => this.schedule(), 25);
+            }
+
+            stop() {
+                this.isPlaying = false;
+                if (this.timerId) clearInterval(this.timerId);
+            }
+
+            schedule() {
+                if (!this.ctx || !this.isPlaying) return;
+                const currentTempo = this.overdrive ? 152 : this.tempo;
+                const secondsPerBeat = 60.0 / currentTempo;
+                const stepDuration = secondsPerBeat / 4; // 16th notes
+
+                while (this.nextNoteTime < this.ctx.currentTime + 0.12) {
+                    this.playStep(this.step, this.nextNoteTime, stepDuration);
+                    this.nextNoteTime += stepDuration;
+                    this.step = (this.step + 1) % 64;
+                }
+            }
+
+            playStep(step, time, dur) {
+                // 1. Four-on-the-floor Sub Kick
+                if (step % 4 === 0) {
+                    this.triggerKick(time);
+                }
+                // Off-beat driving hi-hat
+                if (step % 4 === 2) {
+                    this.triggerHiHat(time, 0.09);
+                } else if (step % 2 === 1) {
+                    this.triggerHiHat(time, 0.03);
+                }
+                // Clap/Snare on 4 and 12
+                if (step % 8 === 4) {
+                    this.triggerSnare(time);
+                }
+
+                // 2. Squelchy 303 Acid Bassline
+                const bassMidi = this.bassNotes[step % 16] + (this.overdrive && step % 2 === 0 ? 12 : 0);
+                const cutoffMod = 400 + Math.sin(step * 0.4) * 320 + (this.overdrive ? 900 : 0);
+                this.triggerAcidBass(this.mtof(bassMidi - 12), time, dur * 0.85, cutoffMod);
+
+                // 3. Trippy Space Arpeggiator
+                if (step % 2 === 0 || this.overdrive) {
+                    const arpMidi = this.arpNotes[(step + Math.floor(step / 16) * 3) % 16];
+                    this.triggerSpaceArp(this.mtof(arpMidi + (this.overdrive ? 12 : 0)), time, dur * 0.9);
+                }
+            }
+
+            triggerKick(time) {
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.frequency.setValueAtTime(150, time);
+                    osc.frequency.exponentialRampToValueAtTime(34, time + 0.12);
+                    osc.frequency.exponentialRampToValueAtTime(20, time + 0.35);
+
+                    gain.gain.setValueAtTime(0.55, time);
+                    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.35);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(time);
+                    osc.stop(time + 0.36);
+                } catch (e) {}
+            }
+
+            triggerHiHat(time, vol) {
+                try {
+                    const bufferSize = this.ctx.sampleRate * 0.05;
+                    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+                    const noise = this.ctx.createBufferSource();
+                    noise.buffer = buffer;
+
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = 'highpass';
+                    filter.frequency.setValueAtTime(7500, time);
+
+                    const gain = this.ctx.createGain();
+                    gain.gain.setValueAtTime(vol, time);
+                    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
+
+                    noise.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    noise.start(time);
+                } catch (e) {}
+            }
+
+            triggerSnare(time) {
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(220, time);
+                    osc.frequency.exponentialRampToValueAtTime(80, time + 0.12);
+                    gain.gain.setValueAtTime(0.2, time);
+                    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.14);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(time);
+                    osc.stop(time + 0.15);
+                } catch (e) {}
+            }
+
+            triggerAcidBass(freq, time, dur, cutoff) {
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const filter = this.ctx.createBiquadFilter();
+                    const gain = this.ctx.createGain();
+
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(freq, time);
+
+                    filter.type = 'lowpass';
+                    filter.Q.setValueAtTime(this.overdrive ? 14 : 9, time);
+                    filter.frequency.setValueAtTime(cutoff, time);
+                    filter.frequency.exponentialRampToValueAtTime(140, time + dur);
+
+                    gain.gain.setValueAtTime(0.16, time);
+                    gain.gain.exponentialRampToValueAtTime(0.001, time + dur);
+
+                    osc.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    osc.start(time);
+                    osc.stop(time + dur + 0.01);
+                } catch (e) {}
+            }
+
+            triggerSpaceArp(freq, time, dur) {
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = this.overdrive ? 'sawtooth' : 'square';
+                    osc.frequency.setValueAtTime(freq, time);
+
+                    gain.gain.setValueAtTime(0.06, time);
+                    gain.gain.exponentialRampToValueAtTime(0.001, time + dur * 1.4);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(time);
+                    osc.stop(time + dur * 1.45);
+                } catch (e) {}
+            }
+
+            // Sound Effects
+            sfxShoot() {
+                this.init();
+                try {
+                    const now = this.ctx.currentTime;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(1200, now);
+                    osc.frequency.exponentialRampToValueAtTime(140, now + 0.14);
+                    gain.gain.setValueAtTime(0.22, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.15);
+                } catch (e) {}
+            }
+
+            sfxJump() {
+                this.init();
+                try {
+                    const now = this.ctx.currentTime;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(240, now);
+                    osc.frequency.exponentialRampToValueAtTime(620, now + 0.16);
+                    gain.gain.setValueAtTime(0.18, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.17);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.18);
+                } catch (e) {}
+            }
+
+            sfxRoll() {
+                this.init();
+                try {
+                    const now = this.ctx.currentTime;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(420, now);
+                    osc.frequency.exponentialRampToValueAtTime(90, now + 0.18);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.19);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.2);
+                } catch (e) {}
+            }
+
+            sfxPotionDrink() {
+                this.init();
+                try {
+                    const now = this.ctx.currentTime;
+                    [440, 554, 659, 880, 1108, 1318].forEach((f, idx) => {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(f, now + idx * 0.08);
+                        gain.gain.setValueAtTime(0.15, now + idx * 0.08);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.35);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(now + idx * 0.08);
+                        osc.stop(now + idx * 0.08 + 0.36);
+                    });
+                } catch (e) {}
+            }
+
+            sfxVampireExplode() {
+                this.init();
+                try {
+                    const now = this.ctx.currentTime;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(190, now);
+                    osc.frequency.exponentialRampToValueAtTime(28, now + 0.32);
+                    gain.gain.setValueAtTime(0.32, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.33);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.34);
+                } catch (e) {}
+            }
+
+            sfxCheckpointUpgrade() {
+                this.init();
+                try {
+                    const now = this.ctx.currentTime;
+                    [523.25, 659.25, 783.99, 1046.5].forEach((f, idx) => {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(f, now + idx * 0.09);
+                        gain.gain.setValueAtTime(0.22, now + idx * 0.09);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.09 + 0.38);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(now + idx * 0.09);
+                        osc.stop(now + idx * 0.09 + 0.4);
+                    });
+                } catch (e) {}
+            }
+
+            sfxCratePickup() {
+                this.init();
+                try {
+                    const now = this.ctx.currentTime;
+                    [440, 660, 880, 1320].forEach((f, idx) => {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(f, now + idx * 0.05);
+                        gain.gain.setValueAtTime(0.18, now + idx * 0.05);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.05 + 0.25);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(now + idx * 0.05);
+                        osc.stop(now + idx * 0.05 + 0.26);
+                    });
+                } catch (e) {}
+            }
+
+            sfxWeaponRevert() {
+                this.init();
+                try {
+                    const now = this.ctx.currentTime;
+                    [880, 659, 440].forEach((f, idx) => {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(f, now + idx * 0.07);
+                        gain.gain.setValueAtTime(0.16, now + idx * 0.07);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.22);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(now + idx * 0.07);
+                        osc.stop(now + idx * 0.07 + 0.23);
+                    });
+                } catch (e) {}
+            }
+
+            sfxExplosion() {
+                this.init();
+                try {
+                    const now = this.ctx.currentTime;
+                    const bufferSize = this.ctx.sampleRate * 0.42;
+                    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+                    const noise = this.ctx.createBufferSource();
+                    noise.buffer = buffer;
+
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(650, now);
+                    filter.frequency.exponentialRampToValueAtTime(55, now + 0.4);
+
+                    const gain = this.ctx.createGain();
+                    gain.gain.setValueAtTime(0.48, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.41);
+
+                    noise.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    noise.start(now);
+                } catch (e) {}
+            }
+        }
+
+        const sound = new SpaceTechnoAudio();
+
+        /* ============================================================================
+         * 2. CANVAS, INPUT & XBOX CONTROLLER ENGINE
+         * ============================================================================ */
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        const keys = {};
+        const touchInput = { left: false, right: false, up: false, down: false, jump: false, shoot: false, roll: false, special: false };
+        const padInput   = { left: false, right: false, up: false, down: false, jump: false, shoot: false, roll: false, special: false };
+        let prevJumpPressed = false;
+        let prevRollPressed = false;
+        let prevSpecialPressed = false;
+        let activeGamepadIndex = null;
+
+        window.addEventListener('keydown', e => {
+            keys[e.code] = true;
+            if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+        });
+        window.addEventListener('keyup', e => { keys[e.code] = false; });
+
+        // Mouse click shooting on canvas
+        canvas.addEventListener('mousedown', e => {
+            if (e.button === 0 && gameState === 'PLAYING') keys['MouseShoot'] = true;
+        });
+        window.addEventListener('mouseup', () => { keys['MouseShoot'] = false; });
+
+        // Xbox Controller Connection Events
+        window.addEventListener('gamepadconnected', e => {
+            activeGamepadIndex = e.gamepad.index;
+            updateGamepadHUD(true, e.gamepad.id);
+        });
+        window.addEventListener('gamepaddisconnected', () => {
+            activeGamepadIndex = null;
+            updateGamepadHUD(false);
+        });
+
+        function updateGamepadHUD(connected, id = '') {
+            const dot = document.getElementById('gamepadDot');
+            const label = document.getElementById('gamepadLabel');
+            if (connected) {
+                dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_10px_#34d399]';
+                label.textContent = 'XBOX PAD READY';
+                label.className = 'hidden sm:inline text-[10px] text-emerald-300 font-bold';
+            } else {
+                dot.className = 'w-2.5 h-2.5 rounded-full bg-slate-500';
+                label.textContent = 'NO PAD';
+                label.className = 'hidden sm:inline text-[10px] text-slate-400 font-bold';
+            }
+        }
+
+        function triggerVibration(duration = 120, weak = 0.5, strong = 0.8) {
+            if (activeGamepadIndex === null) return;
+            const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+            const gp = pads[activeGamepadIndex];
+            if (gp && gp.vibrationActuator && gp.vibrationActuator.playEffect) {
+                gp.vibrationActuator.playEffect('dual-rumble', {
+                    startDelay: 0,
+                    duration: duration,
+                    weakMagnitude: weak,
+                    strongMagnitude: strong
+                }).catch(() => {});
+            }
+        }
+
+        function pollXboxGamepad() {
+            const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+            let gp = null;
+            for (let i = 0; i < pads.length; i++) {
+                if (pads[i]) { gp = pads[i]; activeGamepadIndex = i; break; }
+            }
+            if (!gp) return;
+            updateGamepadHUD(true);
+
+            const axisX = gp.axes[0] || 0;
+            const axisY = gp.axes[1] || 0;
+            const dpadUp    = gp.buttons[12] && gp.buttons[12].pressed;
+            const dpadDown  = gp.buttons[13] && gp.buttons[13].pressed;
+            const dpadLeft  = gp.buttons[14] && gp.buttons[14].pressed;
+            const dpadRight = gp.buttons[15] && gp.buttons[15].pressed;
+
+            padInput.left  = axisX < -0.25 || dpadLeft;
+            padInput.right = axisX > 0.25 || dpadRight;
+            padInput.up    = axisY < -0.25 || dpadUp;
+            padInput.down  = axisY > 0.25 || dpadDown;
+
+            // A (0) = Jump
+            padInput.jump = Boolean(gp.buttons[0] && gp.buttons[0].pressed);
+            // X (2) or RT (7) = Shoot
+            padInput.shoot = Boolean((gp.buttons[2] && gp.buttons[2].pressed) || (gp.buttons[7] && gp.buttons[7].value > 0.3));
+            // B (1) or LT (6) = Roll
+            padInput.roll = Boolean((gp.buttons[1] && gp.buttons[1].pressed) || (gp.buttons[6] && gp.buttons[6].value > 0.3));
+            // Y (3) or RB (5) = Special Potion / Flying Unicorn
+            padInput.special = Boolean((gp.buttons[3] && gp.buttons[3].pressed) || (gp.buttons[5] && gp.buttons[5].pressed));
+        }
+
+        // Virtual Floating Thumbstick / D-Pad Logic
+        const dpadZone = document.getElementById('dpadZone');
+        const stickNub = document.getElementById('stickNub');
+        let dpadTouchId = null;
+
+        function handleDpadMove(clientX, clientY) {
+            const rect = dpadZone.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            const dx = clientX - centerX;
+            const dy = clientY - centerY;
+            const maxRadius = rect.width * 0.36;
+            const dist = Math.min(Math.hypot(dx, dy), maxRadius);
+            const angle = Math.atan2(dy, dx);
+
+            const offsetX = Math.cos(angle) * dist;
+            const offsetY = Math.sin(angle) * dist;
+            stickNub.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+
+            touchInput.left  = dx < -14;
+            touchInput.right = dx > 14;
+            touchInput.up    = dy < -14;
+            touchInput.down  = dy > 14;
+        }
+
+        function resetDpad() {
+            dpadTouchId = null;
+            stickNub.style.transform = 'translate(0px, 0px)';
+            touchInput.left = false;
+            touchInput.right = false;
+            touchInput.up = false;
+            touchInput.down = false;
+        }
+
+        dpadZone.addEventListener('touchstart', e => {
+            e.preventDefault();
+            const t = e.changedTouches[0];
+            dpadTouchId = t.identifier;
+            handleDpadMove(t.clientX, t.clientY);
+        }, { passive: false });
+
+        dpadZone.addEventListener('touchmove', e => {
+            e.preventDefault();
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                if (e.changedTouches[i].identifier === dpadTouchId) {
+                    handleDpadMove(e.changedTouches[i].clientX, e.changedTouches[i].clientY);
+                }
+            }
+        }, { passive: false });
+
+        dpadZone.addEventListener('touchend', e => {
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                if (e.changedTouches[i].identifier === dpadTouchId) resetDpad();
+            }
+        });
+        dpadZone.addEventListener('touchcancel', resetDpad);
+
+        // Bind Arcade Diamond Touch & Mouse Buttons
+        function bindArcadeButton(btnId, fieldName) {
+            const btn = document.getElementById(btnId);
+            if (!btn) return;
+            const press = e => {
+                if (e.cancelable) e.preventDefault();
+                e.stopPropagation();
+                touchInput[fieldName] = true;
+                btn.classList.add('active-press');
+            };
+            const release = e => {
+                if (e && e.cancelable) e.preventDefault();
+                touchInput[fieldName] = false;
+                btn.classList.remove('active-press');
+            };
+            btn.addEventListener('touchstart', press, { passive: false });
+            btn.addEventListener('touchend', release, { passive: false });
+            btn.addEventListener('touchcancel', release, { passive: false });
+            btn.addEventListener('pointerdown', press);
+            btn.addEventListener('pointerup', release);
+            btn.addEventListener('pointerleave', release);
+        }
+
+        bindArcadeButton('btnJump', 'jump');
+        bindArcadeButton('btnShoot', 'shoot');
+        bindArcadeButton('btnRoll', 'roll');
+        bindArcadeButton('btnSpecial', 'special');
+
+        /* ============================================================================
+         * 3. CORE WORLD STATE, PROCEDURAL PLATFORMS & STARFIELD INITIALIZATION
+         * ============================================================================ */
+        let worldTime = 0;
+        let cameraX = 0;
+        let score = 0;
+        let screenShake = 0;
+        let hitStopFrames = 0;
+        let nextCheckpointDist = 1000;
+        let checkpointBannerTimer = 0;
+
+        const BASE_GUN_TIERS = [
+            null,
+            { name: 'LVL 1: PLASMA BLUNDERBUSS', color: '#00f0ff' },
+            { name: 'LVL 2: TWIN RAIL REPEATER', color: '#38bdf8' },
+            { name: 'LVL 3: TRI-SPREAD CANNON', color: '#a855f7' },
+            { name: 'LVL 4: PENTA-STAR GATLING', color: '#f43f5e' },
+            { name: 'LVL 5: OMEGA EMANCIPATION', color: '#ffea00' }
+        ];
+
+        const SPECIAL_WEAPON_SPECS = {
+            GRENADE_LAUNCHER: {
+                id: 'GRENADE_LAUNCHER',
+                name: 'PLASMA GRENADE LAUNCHER',
+                shortLabel: 'GRENADE LAUNCHER',
+                color: '#f97316',
+                cooldown: 18
+            },
+            SOLAR_NAPALM: {
+                id: 'SOLAR_NAPALM',
+                name: 'SOLAR NAPALM THROWER',
+                shortLabel: 'NAPALM THROWER',
+                color: '#ef4444',
+                cooldown: 5
+            },
+            TESLA_CANNON: {
+                id: 'TESLA_CANNON',
+                name: 'TESLA RAIL-CHAIN CANNON',
+                shortLabel: 'TESLA CANNON',
+                color: '#38bdf8',
+                cooldown: 14
+            },
+            CLUSTER_BAZOOKA: {
+                id: 'CLUSTER_BAZOOKA',
+                name: 'CLUSTER ROCKET BAZOOKA',
+                shortLabel: 'CLUSTER BAZOOKA',
+                color: '#eab308',
+                cooldown: 22
+            }
+        };
+
+        function getBaseGunName(lvl) {
+            if (lvl < BASE_GUN_TIERS.length) return BASE_GUN_TIERS[lvl].name;
+            return `LVL ${lvl}: OMEGA EMANCIPATION MK-${lvl - 4}`;
+        }
+
+        function getGroundY() {
+            return canvas.height - Math.max(58, Math.floor(canvas.height * 0.14));
+        }
+
+        // Starfield Layer
+        const stars = Array.from({ length: 85 }, () => ({
+            x: Math.random() * 2000,
+            y: Math.random() * 800,
+            r: Math.random() * 2.2 + 0.6,
+            hue: Math.random() > 0.5 ? 190 : 315,
+            twinkle: Math.random() * Math.PI * 2
+        }));
+
+        // Procedural Cyber-Gothic Platforms Cache
+        const platformChunks = new Map();
+        function getPlatformsForChunk(chunkIndex) {
+            if (chunkIndex < 0) return [];
+            if (!platformChunks.has(chunkIndex)) {
+                const gy = getGroundY();
+                const baseX = chunkIndex * 900;
+                const list = [
+                    { x: baseX + 180, y: gy - 115, w: 190, h: 16 },
+                    { x: baseX + 470, y: gy - 195, w: 210, h: 16 },
+                    { x: baseX + 720, y: gy - 125, w: 150, h: 16 }
+                ];
+                platformChunks.set(chunkIndex, list);
+            }
+            return platformChunks.get(chunkIndex);
+        }
+
+        /* --- ABRAHAM LINCOLN & FLYING UNICORN MOUNT: ARTICULATED VECTOR RIG --- */
+        class AbrahamLincoln {
+            constructor() {
+                this.x = 180;
+                this.y = getGroundY() - 100;
+                this.vx = 0;
+                this.vy = 0;
+                this.w = 44;
+                this.h = 92;
+                this.facing = 1;
+                this.walkCycle = 0;
+
+                // Health & Mobility
+                this.maxHealth = 100;
+                this.health = 100;
+                this.isGrounded = false;
+                this.jumpsLeft = 2;
+                this.isRolling = false;
+                this.rollTimer = 0;
+                this.rollCooldown = 0;
+                this.rollAngle = 0;
+
+                // Combat & Weapon Progression
+                this.shootCooldown = 0;
+                this.recoil = 0;
+                this.baseWeaponLevel = 1;      // Permanent gun upgraded at every Checkpoint
+                this.tempSpecialWeapon = null; // 'GRENADE_LAUNCHER', 'SOLAR_NAPALM', 'TESLA_CANNON', 'CLUSTER_BAZOOKA'
+                this.tempWeaponTimer = 0;      // 600 frames = 10.0 seconds at 60fps
+
+                // Special Potion (0.8s Drink Animation -> 15 Seconds Flying Unicorn Mount!)
+                this.potionCharge = 100; // Starts Ready so player can ride the Unicorn immediately!
+                this.drinkingTimer = 0;  // 48 frames (0.8s)
+                this.invincibleTimer = 0; // 900 frames (15.0s at 60fps)
+
+                // Coat tail, Unicorn Rainbow Ribbon & Afterimage Trail
+                this.afterimages = [];
+                this.rainbowTrail = [];
+            }
+
+            update(input, activePlatforms) {
+                const gy = getGroundY();
+
+                // Tick down 10-second physical Special Weapon timer if equipped
+                if (this.tempWeaponTimer > 0) {
+                    this.tempWeaponTimer--;
+                    if (this.tempWeaponTimer === 0 && this.tempSpecialWeapon) {
+                        this.tempSpecialWeapon = null;
+                        sound.sfxWeaponRevert();
+                        spawnScorePopup(
+                            this.x + this.w / 2,
+                            this.y - 24,
+                            `REVERTED TO ${getBaseGunName(this.baseWeaponLevel)}`,
+                            '#00f0ff'
+                        );
+                    }
+                }
+
+                // 1. Handle Potion Drinking Dramatic Pause (0.8 seconds)
+                if (this.drinkingTimer > 0) {
+                    this.drinkingTimer--;
+                    this.vx *= 0.7;
+                    this.vy *= 0.7;
+                    if (this.drinkingTimer % 3 === 0) {
+                        spawnParticles(this.x + this.w / 2, this.y + 30, 5, `hsl(${Math.random() * 360}, 100%, 65%)`, 7);
+                    }
+                    if (this.drinkingTimer === 0) {
+                        // Summon the Flying Cosmic Unicorn for 15 Seconds!
+                        this.invincibleTimer = 900; // 15s @ 60fps
+                        this.y = Math.min(this.y, gy - 170); // Lift slightly into the air on mount!
+                        this.vy = -4;
+                        sound.overdrive = true;
+                        screenShake = 20;
+                        triggerVibration(380, 0.9, 1.0);
+                        spawnParticles(this.x + this.w / 2, this.y + 45, 80, '#00f0ff', 15);
+                        spawnParticles(this.x + this.w / 2, this.y + 45, 80, '#ff007f', 15);
+                        spawnScorePopup(this.x + this.w / 2, this.y - 20, '🦄 FLYING UNICORN SUMMONED!', '#00f0ff');
+                    }
+                    return;
+                }
+
+                // Trigger Special Potion if Ready
+                if (input.specialJustPressed && this.potionCharge >= 100 && this.invincibleTimer <= 0) {
+                    this.potionCharge = 0;
+                    this.drinkingTimer = 48; // 0.8s dramatic drink animation
+                    this.isRolling = false;
+                    sound.sfxPotionDrink();
+                    triggerVibration(180, 0.6, 0.8);
+                    spawnScorePopup(this.x + this.w / 2, this.y - 15, '🧪 DRINKING ELIXIR...', '#ff007f');
+                    return;
+                }
+
+                // 2. Invincibility + Flying Unicorn Mode Active (15 Seconds)
+                if (this.invincibleTimer > 0) {
+                    this.invincibleTimer--;
+
+                    // Full 8-Way Free Flight Control on the Flying Unicorn!
+                    const flySpeed = 9.5;
+                    if (input.left) {
+                        this.vx = -flySpeed;
+                        this.facing = -1;
+                    } else if (input.right) {
+                        this.vx = flySpeed;
+                        this.facing = 1;
+                    } else {
+                        this.vx *= 0.84;
+                    }
+
+                    if (input.up) {
+                        this.vy = -flySpeed * 0.85;
+                    } else if (input.down) {
+                        this.vy = flySpeed * 0.85;
+                    } else {
+                        // Gentle cosmic hover bobbing when vertical stick is neutral
+                        this.vy = this.vy * 0.82 + Math.cos(worldTime * 0.12) * 0.35;
+                    }
+
+                    // Pressing Jump (A) gives a Pegasus Wing Thrust Boost upward & forward!
+                    if (input.jumpJustPressed) {
+                        this.vy = -11.5;
+                        this.vx = this.facing * 13.5;
+                        sound.sfxJump();
+                        spawnParticles(this.x + this.w / 2, this.y + 70, 18, '#ffea00', 8);
+                    }
+
+                    this.walkCycle += 0.32;
+                    this.x += this.vx;
+                    this.y += this.vy;
+
+                    // Keep Unicorn within sky bounds & above ground floor
+                    if (this.y < 65) { this.y = 65; this.vy = 0; }
+                    if (this.y + this.h > gy - 12) {
+                        this.y = gy - 12 - this.h;
+                        this.vy = 0;
+                    }
+                    if (this.x < cameraX + 40) this.x = cameraX + 40;
+
+                    // Record Flowing Rainbow Ribbon Trail behind the Unicorn
+                    this.rainbowTrail.push({
+                        x: this.x + (this.facing === 1 ? -28 : this.w + 28),
+                        y: this.y + 62 + Math.sin(worldTime * 0.3) * 6,
+                        life: 28
+                    });
+                    if (this.rainbowTrail.length > 32) this.rainbowTrail.shift();
+
+                    // Sparkle dust from unicorn hooves/wings
+                    if (worldTime % 2 === 0) {
+                        spawnParticles(
+                            this.x + this.w / 2 - this.facing * 35,
+                            this.y + 72,
+                            1,
+                            `hsl(${(worldTime * 15) % 360}, 100%, 70%)`,
+                            3
+                        );
+                    }
+
+                    if (this.invincibleTimer === 0) {
+                        sound.overdrive = false;
+                        this.rainbowTrail = [];
+                    }
+                } else {
+                    // Standard Ground & Platformer Physics when not on the Unicorn
+                    this.potionCharge = Math.min(100, this.potionCharge + 0.06);
+                    const moveSpeed = 6.2;
+
+                    if (this.isRolling) {
+                        this.rollTimer--;
+                        this.vx = this.facing * 12.5;
+                        this.rollAngle += this.facing * 0.38;
+                        if (this.rollTimer <= 0) {
+                            this.isRolling = false;
+                            this.rollAngle = 0;
+                        }
+                    } else {
+                        if (input.left) {
+                            this.vx = -moveSpeed;
+                            this.facing = -1;
+                            this.walkCycle += 0.24;
+                        } else if (input.right) {
+                            this.vx = moveSpeed;
+                            this.facing = 1;
+                            this.walkCycle += 0.24;
+                        } else {
+                            this.vx *= 0.78;
+                            this.walkCycle += 0.05;
+                        }
+
+                        // Initiate Roll
+                        if (input.rollJustPressed && this.rollCooldown <= 0) {
+                            this.isRolling = true;
+                            this.rollTimer = 22;
+                            this.rollCooldown = 38;
+                            sound.sfxRoll();
+                        }
+                    }
+
+                    // Jump & Double Jump
+                    if (input.jumpJustPressed && this.jumpsLeft > 0 && !this.isRolling) {
+                        this.vy = -14.2;
+                        this.isGrounded = false;
+                        this.jumpsLeft--;
+                        sound.sfxJump();
+                        spawnParticles(this.x + this.w / 2, this.y + this.h, 12, '#00f0ff', 5);
+                    }
+
+                    // Variable jump height cut
+                    if (!input.jumpHeld && this.vy < -6) {
+                        this.vy *= 0.85;
+                    }
+
+                    // Apply Gravity
+                    const prevFootY = this.y + this.h;
+                    this.vy += 0.68;
+                    this.x += this.vx;
+                    this.y += this.vy;
+
+                    // Platform Collisions (One-way from above)
+                    this.isGrounded = false;
+                    if (this.vy >= 0) {
+                        for (const plat of activePlatforms) {
+                            if (this.x + this.w * 0.75 > plat.x &&
+                                this.x + this.w * 0.25 < plat.x + plat.w &&
+                                prevFootY <= plat.y + 8 &&
+                                this.y + this.h >= plat.y) {
+                                this.y = plat.y - this.h;
+                                this.vy = 0;
+                                this.isGrounded = true;
+                                this.jumpsLeft = 2;
+                                break;
+                            }
+                        }
+                    }
+
+                    // Main Ground Floor Collision
+                    if (this.y + this.h >= gy) {
+                        this.y = gy - this.h;
+                        this.vy = 0;
+                        this.isGrounded = true;
+                        this.jumpsLeft = 2;
+                    }
+
+                    // Prevent walking off left camera edge
+                    if (this.x < cameraX + 40) this.x = cameraX + 40;
+                }
+
+                // Cooldowns
+                if (this.rollCooldown > 0) this.rollCooldown--;
+                if (this.shootCooldown > 0) this.shootCooldown--;
+                if (this.recoil > 0) this.recoil *= 0.75;
+
+                // Update Rainbow Ribbon Trail
+                for (let i = this.rainbowTrail.length - 1; i >= 0; i--) {
+                    this.rainbowTrail[i].life--;
+                    if (this.rainbowTrail[i].life <= 0) this.rainbowTrail.splice(i, 1);
+                }
+
+                // Record Neon Afterimages when rolling
+                if (this.isRolling) {
+                    this.afterimages.push({
+                        x: this.x,
+                        y: this.y,
+                        facing: this.facing,
+                        isRolling: this.isRolling,
+                        rollAngle: this.rollAngle,
+                        alpha: 0.55,
+                        hue: (worldTime * 8) % 360
+                    });
+                }
+                for (let i = this.afterimages.length - 1; i >= 0; i--) {
+                    this.afterimages[i].alpha -= 0.06;
+                    if (this.afterimages[i].alpha <= 0) this.afterimages.splice(i, 1);
+                }
+            }
+
+            draw(ctx, camX) {
+                // 0. Draw Flowing Rainbow Ribbon Trail when riding the Flying Unicorn
+                if (this.rainbowTrail.length > 1) {
+                    const stripeColors = ['#ff0055', '#ff9900', '#ffee00', '#00ff88', '#00f0ff', '#a855f7'];
+                    ctx.save();
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    for (let s = 0; s < stripeColors.length; s++) {
+                        ctx.beginPath();
+                        ctx.strokeStyle = stripeColors[s];
+                        ctx.lineWidth = 4;
+                        for (let i = 0; i < this.rainbowTrail.length; i++) {
+                            const pt = this.rainbowTrail[i];
+                            const px = pt.x - camX;
+                            const py = pt.y - 12 + s * 4.5;
+                            if (i === 0) ctx.moveTo(px, py);
+                            else ctx.lineTo(px, py);
+                        }
+                        ctx.stroke();
+                    }
+                    ctx.restore();
+                }
+
+                // Draw neon motion blur afterimages
+                for (const img of this.afterimages) {
+                    ctx.save();
+                    ctx.translate(img.x - camX + this.w / 2, img.y + this.h / 2);
+                    ctx.scale(img.facing, 1);
+                    if (img.isRolling) ctx.rotate(img.rollAngle);
+                    ctx.globalAlpha = img.alpha * 0.5;
+                    ctx.fillStyle = `hsl(${img.hue}, 100%, 60%)`;
+                    ctx.beginPath();
+                    ctx.roundRect(-20, -44, 40, 88, 12);
+                    ctx.fill();
+                    ctx.restore();
+                }
+
+                ctx.save();
+                const cx = this.x - camX + this.w / 2;
+                const cy = this.y + this.h / 2;
+                ctx.translate(cx, cy);
+
+                const isRidingUnicorn = this.invincibleTimer > 0;
+
+                // 15-Second Invincibility Rainbow Shield Ring
+                if (isRidingUnicorn) {
+                    const hue = (worldTime * 12) % 360;
+                    ctx.save();
+                    ctx.shadowBlur = 30;
+                    ctx.shadowColor = `hsl(${hue}, 100%, 60%)`;
+                    ctx.strokeStyle = `hsl(${(hue + 60) % 360}, 100%, 70%)`;
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    for (let i = 0; i < 14; i++) {
+                        const ang = (i / 14) * Math.PI * 2 + worldTime * 0.14;
+                        const rad = 74 + Math.sin(worldTime * 0.4 + i * 2) * 10;
+                        const px = Math.cos(ang) * rad;
+                        const py = Math.sin(ang) * rad;
+                        if (i === 0) ctx.moveTo(px, py);
+                        else ctx.lineTo(px, py);
+                    }
+                    ctx.closePath();
+                    ctx.stroke();
+                    ctx.restore();
+                }
+
+                ctx.scale(this.facing, 1);
+
+                if (this.isRolling) {
+                    ctx.rotate(this.rollAngle);
+                    ctx.shadowBlur = 20;
+                    ctx.shadowColor = '#00f0ff';
+                    ctx.fillStyle = '#0f172a';
+                    ctx.strokeStyle = '#00f0ff';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 28, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.restore();
+                    return;
+                }
+
+                const isMoving = Math.abs(this.vx) > 0.6 || isRidingUnicorn;
+                const legSwing = isMoving ? Math.sin(this.walkCycle) * 13 : 0;
+                const bob = Math.sin(this.walkCycle * 2) * (isMoving ? 3 : 1.2);
+                const riderOffsetY = isRidingUnicorn ? -18 : 0;
+
+                // --- BACK WING OF FLYING UNICORN (Behind Lincoln) ---
+                if (isRidingUnicorn) {
+                    const wingFlap = Math.sin(worldTime * 0.38) * 28;
+                    ctx.save();
+                    ctx.fillStyle = 'rgba(0, 240, 255, 0.55)';
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(-6, 8);
+                    ctx.quadraticCurveTo(-36, -38 + wingFlap, -58, -18 + wingFlap);
+                    ctx.quadraticCurveTo(-40, 6 + wingFlap * 0.5, -12, 16);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.restore();
+                }
+
+                // --- ABRAHAM LINCOLN UPPER & LOWER BODY ---
+                ctx.save();
+                ctx.translate(0, riderOffsetY);
+
+                // 1. Flowing Victorian Frock Coat Tails
+                ctx.fillStyle = '#0f172a';
+                ctx.strokeStyle = isRidingUnicorn ? `hsl(${(worldTime * 10) % 360}, 100%, 65%)` : '#38bdf8';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                const wind = Math.min(24, Math.abs(this.vx) * 2.5) + Math.sin(worldTime * 0.25) * 5;
+                ctx.moveTo(-10, 2 + bob);
+                ctx.quadraticCurveTo(-24 - wind * 0.6, 22 + bob, -28 - wind, 38 + bob);
+                ctx.lineTo(-6 - wind * 0.3, 35 + bob);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                // 2 & 3. Legs (Bent in saddle when riding Unicorn, running when on foot)
+                ctx.lineWidth = 7;
+                ctx.lineCap = 'round';
+                if (isRidingUnicorn) {
+                    ctx.strokeStyle = '#334155';
+                    ctx.beginPath();
+                    ctx.moveTo(2, 16 + bob);
+                    ctx.lineTo(14, 28 + bob);
+                    ctx.lineTo(8, 40 + bob);
+                    ctx.stroke();
+                } else {
+                    ctx.strokeStyle = '#1e293b';
+                    ctx.beginPath();
+                    ctx.moveTo(-4, 18 + bob);
+                    ctx.lineTo(-4 - legSwing, 44);
+                    ctx.stroke();
+
+                    ctx.strokeStyle = '#334155';
+                    ctx.beginPath();
+                    ctx.moveTo(4, 18 + bob);
+                    ctx.lineTo(4 + legSwing, 44);
+                    ctx.stroke();
+                }
+
+                // 4. Tall Presidential Torso & Frock Coat Lapels
+                ctx.fillStyle = '#111827';
+                ctx.beginPath();
+                ctx.roundRect(-13, -18 + bob, 26, 40, 5);
+                ctx.fill();
+                // White Shirt & Red Bowtie
+                ctx.fillStyle = '#f8fafc';
+                ctx.beginPath();
+                ctx.moveTo(2, -16 + bob);
+                ctx.lineTo(11, -16 + bob);
+                ctx.lineTo(6, -2 + bob);
+                ctx.closePath();
+                ctx.fill();
+                ctx.fillStyle = '#e11d48';
+                ctx.fillRect(4, -15 + bob, 6, 4);
+
+                // 5. Head, Chiseled Profile & Iconic Lincoln Chinstrap Beard
+                ctx.save();
+                ctx.translate(0, -28 + bob);
+                if (this.drinkingTimer > 0) ctx.rotate(-0.45); // Tilt head back while drinking!
+
+                // Face Skin
+                ctx.fillStyle = '#fde68a';
+                ctx.beginPath();
+                ctx.roundRect(-9, -11, 19, 20, 5);
+                ctx.fill();
+
+                // Prominent Aquiline Nose
+                ctx.beginPath();
+                ctx.moveTo(10, -5);
+                ctx.lineTo(15, 0);
+                ctx.lineTo(10, 2);
+                ctx.fill();
+
+                // Iconic Lincoln Beard & Sideburns
+                ctx.fillStyle = '#1c1917';
+                ctx.beginPath();
+                ctx.moveTo(-9, -6);
+                ctx.lineTo(-3, -6);
+                ctx.lineTo(-2, 4);
+                ctx.lineTo(11, 4);
+                ctx.lineTo(12, 11);
+                ctx.lineTo(-4, 13);
+                ctx.lineTo(-9, 6);
+                ctx.closePath();
+                ctx.fill();
+
+                // Glowing Cyber Eye
+                ctx.fillStyle = isRidingUnicorn ? '#ff007f' : '#00f0ff';
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = '#00f0ff';
+                ctx.fillRect(5, -6, 3.5, 2.5);
+                ctx.shadowBlur = 0;
+
+                // Tall Stovepipe Top Hat with Cyber Gold Band
+                ctx.fillStyle = '#090d16';
+                ctx.strokeStyle = '#334155';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.roundRect(-16, -13, 34, 4.5, 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.roundRect(-11, -39, 23, 27, 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.fillStyle = '#f59e0b';
+                ctx.fillRect(-11, -16, 23, 3);
+                ctx.restore();
+
+                // 6. Special Animation: Drinking Glowing Psychedelic Vial
+                if (this.drinkingTimer > 0) {
+                    ctx.save();
+                    ctx.translate(14, -36 + bob);
+                    ctx.rotate(0.6);
+                    ctx.shadowBlur = 20;
+                    ctx.shadowColor = '#ff007f';
+                    ctx.fillStyle = '#00f0ff';
+                    ctx.beginPath();
+                    ctx.roundRect(-6, -12, 12, 22, 5);
+                    ctx.fill();
+                    ctx.fillStyle = '#ff007f';
+                    ctx.fillRect(-4, -8, 8, 14);
+                    ctx.restore();
+                } else {
+                    // 7. Dynamic Evolving Weapon Rig (Reflects Base Checkpoint Level OR Active 10s Special Weapon)
+                    ctx.save();
+                    ctx.translate(6 - this.recoil, -4 + bob);
+
+                    const lvl = this.baseWeaponLevel;
+                    const spec = this.tempSpecialWeapon ? SPECIAL_WEAPON_SPECS[this.tempSpecialWeapon] : null;
+
+                    if (spec) {
+                        // --- RENDER SPECIAL CRATE WEAPON IN LINCOLN'S HANDS ---
+                        ctx.fillStyle = '#431407';
+                        ctx.fillRect(-10, -2, 14, 8);
+
+                        if (this.tempSpecialWeapon === 'GRENADE_LAUNCHER') {
+                            // Heavy Rotary Drum Grenade Launcher
+                            ctx.fillStyle = '#1e293b';
+                            ctx.strokeStyle = '#f97316';
+                            ctx.lineWidth = 2;
+                            ctx.beginPath();
+                            ctx.roundRect(2, -7, 36, 13, 3);
+                            ctx.fill();
+                            ctx.stroke();
+                            // Revolving Cylinder Drum
+                            ctx.fillStyle = '#ea580c';
+                            ctx.beginPath();
+                            ctx.arc(14, 1, 9, 0, Math.PI * 2);
+                            ctx.fill();
+                            ctx.strokeStyle = '#fed7aa';
+                            ctx.stroke();
+                            // Wide Thumper Muzzle
+                            ctx.fillStyle = '#0f172a';
+                            ctx.fillRect(36, -8, 7, 15);
+                        } else if (this.tempSpecialWeapon === 'SOLAR_NAPALM') {
+                            // Pressurized Fuel Tank + Igniter Nozzle
+                            ctx.fillStyle = '#7f1d1d';
+                            ctx.strokeStyle = '#ef4444';
+                            ctx.lineWidth = 2;
+                            ctx.beginPath();
+                            ctx.roundRect(0, -6, 38, 12, 4);
+                            ctx.fill();
+                            ctx.stroke();
+                            ctx.fillStyle = '#fbbf24';
+                            ctx.fillRect(8, 5, 18, 8);
+                            ctx.shadowBlur = 14;
+                            ctx.shadowColor = '#ef4444';
+                            ctx.fillStyle = '#fde047';
+                            ctx.beginPath();
+                            ctx.arc(41, -1, 5, 0, Math.PI * 2);
+                            ctx.fill();
+                        } else if (this.tempSpecialWeapon === 'TESLA_CANNON') {
+                            // Dual Copper Coils + Lightning Core
+                            ctx.fillStyle = '#0f172a';
+                            ctx.strokeStyle = '#38bdf8';
+                            ctx.lineWidth = 2;
+                            ctx.fillRect(2, -6, 40, 11);
+                            ctx.strokeRect(2, -6, 40, 11);
+                            ctx.fillStyle = '#00f0ff';
+                            ctx.shadowBlur = 16;
+                            ctx.shadowColor = '#00f0ff';
+                            for (let c = 0; c < 4; c++) {
+                                ctx.fillRect(8 + c * 8, -9, 4, 17);
+                            }
+                        } else {
+                            // CLUSTER_BAZOOKA: Oversized Shoulder-Style Quad-Tube Launcher
+                            ctx.fillStyle = '#365314';
+                            ctx.strokeStyle = '#eab308';
+                            ctx.lineWidth = 2;
+                            ctx.beginPath();
+                            ctx.roundRect(-6, -9, 48, 16, 3);
+                            ctx.fill();
+                            ctx.stroke();
+                            ctx.fillStyle = '#fde047';
+                            ctx.fillRect(36, -7, 5, 12);
+                        }
+                    } else {
+                        // --- RENDER UPGRADED CHECKPOINT BASE LASER RIFLE (LVL 1 to LVL 5+) ---
+                        const barrelLen = 30 + Math.min(lvl, 5) * 3.5;
+                        const barrelThick = 8 + Math.min(lvl, 5) * 1.1;
+                        const tierColor = BASE_GUN_TIERS[Math.min(lvl, 5)].color;
+
+                        ctx.fillStyle = '#7c2d12';
+                        ctx.fillRect(-8, -2, 14, 7);
+
+                        ctx.fillStyle = '#1e293b';
+                        ctx.strokeStyle = tierColor;
+                        ctx.lineWidth = 1.6;
+                        ctx.beginPath();
+                        ctx.roundRect(4, -5, barrelLen, barrelThick, 2);
+                        ctx.fill();
+                        ctx.stroke();
+
+                        // Extra twin/triple rail barrels on higher checkpoint levels
+                        if (lvl >= 2) {
+                            ctx.fillStyle = '#0f172a';
+                            ctx.fillRect(8, -8, barrelLen - 4, 4);
+                            ctx.strokeRect(8, -8, barrelLen - 4, 4);
+                        }
+                        if (lvl >= 4) {
+                            ctx.fillStyle = tierColor;
+                            ctx.fillRect(10, barrelThick - 4, barrelLen - 6, 4);
+                        }
+
+                        ctx.fillStyle = isRidingUnicorn ? '#ff007f' : tierColor;
+                        ctx.shadowBlur = 12;
+                        ctx.shadowColor = tierColor;
+                        const coils = Math.min(2 + lvl, 6);
+                        for (let c = 0; c < coils; c++) {
+                            ctx.fillRect(8 + c * 6, -3.5, 3.5, 6);
+                        }
+
+                        // Silver Vampire-Axe Bayonet
+                        ctx.shadowBlur = 0;
+                        ctx.fillStyle = '#e2e8f0';
+                        ctx.beginPath();
+                        ctx.moveTo(18 + lvl * 2, 4);
+                        ctx.lineTo(34 + lvl * 2, 4);
+                        ctx.quadraticCurveTo(37 + lvl * 2, 15, 26 + lvl * 2, 17);
+                        ctx.quadraticCurveTo(17 + lvl * 2, 14, 18 + lvl * 2, 4);
+                        ctx.closePath();
+                        ctx.fill();
+                    }
+
+                    // Floating OrbitingOmega Drone for Checkpoint Level 5+
+                    if (lvl >= 5) {
+                        const droneY = -36 + Math.sin(worldTime * 0.2) * 7;
+                        ctx.save();
+                        ctx.translate(-16, droneY);
+                        ctx.shadowBlur = 14;
+                        ctx.shadowColor = '#ffea00';
+                        ctx.fillStyle = '#0f172a';
+                        ctx.strokeStyle = '#ffea00';
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.arc(0, 0, 9, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.stroke();
+                        ctx.fillStyle = '#00f0ff';
+                        ctx.fillRect(4, -2, 8, 4);
+                        ctx.restore();
+                    }
+
+                    ctx.restore();
+                }
+
+                ctx.restore(); // End Lincoln body offset
+
+                // --- MAJESTIC CYBER-COSMIC FLYING UNICORN MOUNT ---
+                if (isRidingUnicorn) {
+                    ctx.save();
+                    ctx.translate(0, 18 + bob);
+                    const gallop = Math.sin(worldTime * 0.35) * 14;
+                    const wingFlap = Math.sin(worldTime * 0.38) * 32;
+                    const rainbowHue = (worldTime * 10) % 360;
+
+                    // 1. Flowing Rainbow-Plasma Unicorn Tail
+                    const tailColors = ['#ff0055', '#ffbe0b', '#00f0ff', '#a855f7'];
+                    for (let t = 0; t < tailColors.length; t++) {
+                        ctx.strokeStyle = tailColors[t];
+                        ctx.lineWidth = 4;
+                        ctx.beginPath();
+                        ctx.moveTo(-30, -2 + t * 2.5);
+                        ctx.quadraticCurveTo(
+                            -52,
+                            -10 + Math.sin(worldTime * 0.3 + t) * 10,
+                            -72,
+                            6 + Math.cos(worldTime * 0.25 + t) * 12
+                        );
+                        ctx.stroke();
+                    }
+
+                    // 2. Galloping Cyber-Hooves & Legs
+                    ctx.lineCap = 'round';
+                    ctx.lineWidth = 6.5;
+                    ctx.strokeStyle = '#e2e8f0';
+                    // Back legs
+                    ctx.beginPath();
+                    ctx.moveTo(-22, 10);
+                    ctx.lineTo(-34 - gallop, 28);
+                    ctx.moveTo(-14, 10);
+                    ctx.lineTo(-20 + gallop * 0.6, 30);
+                    // Front legs (rearing / flying pose)
+                    ctx.moveTo(20, 8);
+                    ctx.lineTo(38 + gallop, 22);
+                    ctx.moveTo(26, 8);
+                    ctx.lineTo(44 - gallop * 0.5, 16);
+                    ctx.stroke();
+
+                    // Golden Glowing Hooves
+                    ctx.fillStyle = '#fbbf24';
+                    ctx.beginPath();
+                    ctx.arc(38 + gallop, 22, 4, 0, Math.PI * 2);
+                    ctx.arc(-34 - gallop, 28, 4, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // 3. Muscular Iridescent Unicorn Body & Neck
+                    ctx.shadowBlur = 18;
+                    ctx.shadowColor = '#00f0ff';
+                    ctx.fillStyle = '#f8fafc';
+                    ctx.strokeStyle = '#38bdf8';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.roundRect(-32, -8, 62, 24, 12);
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // Patriotic Cyber Saddle Blanket
+                    ctx.fillStyle = '#be123c';
+                    ctx.strokeStyle = '#fbbf24';
+                    ctx.fillRect(-14, -9, 26, 14);
+                    ctx.strokeRect(-14, -9, 26, 14);
+
+                    // Arched Stallion Neck & Head
+                    ctx.fillStyle = '#f8fafc';
+                    ctx.strokeStyle = '#38bdf8';
+                    ctx.beginPath();
+                    ctx.moveTo(18, -4);
+                    ctx.lineTo(34, -30);
+                    ctx.lineTo(52, -24);
+                    ctx.lineTo(48, -12);
+                    ctx.lineTo(34, -12);
+                    ctx.lineTo(28, 8);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // Flowing Rainbow Mane along Neck
+                    for (let m = 0; m < 5; m++) {
+                        ctx.fillStyle = `hsl(${(rainbowHue + m * 55) % 360}, 100%, 60%)`;
+                        ctx.beginPath();
+                        ctx.arc(21 + m * 3, -8 - m * 5, 5, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+
+                    // Glowing Magenta Unicorn Eye
+                    ctx.fillStyle = '#ff007f';
+                    ctx.fillRect(39, -24, 4, 3);
+
+                    // 4. Spiral Golden / Magenta Unicorn Horn!
+                    ctx.save();
+                    ctx.shadowBlur = 22;
+                    ctx.shadowColor = '#ff007f';
+                    ctx.fillStyle = '#fde047';
+                    ctx.strokeStyle = '#ff007f';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(42, -28);
+                    ctx.lineTo(68, -44);
+                    ctx.lineTo(46, -21);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.restore();
+
+                    // 5. Articulated Feathered Pegasus Front Wing
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+                    ctx.strokeStyle = `hsl(${rainbowHue}, 100%, 65%)`;
+                    ctx.lineWidth = 2.5;
+                    ctx.beginPath();
+                    ctx.moveTo(2, 0);
+                    ctx.quadraticCurveTo(-18, -44 + wingFlap, -46, -24 + wingFlap);
+                    ctx.lineTo(-28, -8 + wingFlap * 0.6);
+                    ctx.lineTo(-34, 2 + wingFlap * 0.3);
+                    ctx.lineTo(-4, 8);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+
+                    ctx.restore();
+                }
+
+                ctx.restore();
+            }
+        }
+
+        /* --- CARICATURE POLITICIAN VAMPIRE ENEMIES --- */
+        class CaricatureVampire {
+            constructor(x, y, type) {
+                this.x = x;
+                this.y = y;
+                this.type = type; // 'SQUAD_MAGE', 'SPEAKER_ARCH', 'FILIBUSTER_BRUTE'
+                this.w = type === 'FILIBUSTER_BRUTE' ? 58 : 48;
+                this.h = type === 'FILIBUSTER_BRUTE' ? 98 : 88;
+
+                this.maxHealth = type === 'FILIBUSTER_BRUTE' ? 8 : (type === 'SPEAKER_ARCH' ? 5 : 4);
+                this.health = this.maxHealth;
+                this.vx = -2;
+                this.vy = 0;
+                this.phase = Math.random() * Math.PI * 2;
+                this.attackTimer = 60 + Math.floor(Math.random() * 60);
+                this.hitFlash = 0;
+                this.active = true;
+            }
+
+            update(player) {
+                this.phase += 0.08;
+                if (this.hitFlash > 0) this.hitFlash--;
+
+                const dx = player.x - this.x;
+                const dir = dx > 0 ? 1 : -1;
+                const gy = getGroundY();
+
+                if (this.type === 'SQUAD_MAGE') {
+                    // Fast agile aerial swoop + fires sonic rings
+                    this.vx = dir * 3.1;
+                    this.x += this.vx;
+                    const targetY = gy - 175 + Math.sin(this.phase * 1.4) * 55;
+                    this.y += (targetY - this.y) * 0.08;
+
+                    this.attackTimer--;
+                    if (this.attackTimer <= 0 && Math.abs(dx) < 650) {
+                        this.attackTimer = 95;
+                        enemyProjectiles.push({
+                            x: this.x + this.w / 2,
+                            y: this.y + 32,
+                            vx: dir * 7.5,
+                            vy: (player.y - this.y) * 0.015,
+                            r: 12,
+                            color: '#ff007f'
+                        });
+                    }
+                } else if (this.type === 'SPEAKER_ARCH') {
+                    // Hovering Arch-Vamp: teleports & summons crimson energy bats
+                    this.vx = dir * 2.1;
+                    this.x += this.vx;
+                    const targetY = gy - 140 + Math.cos(this.phase) * 35;
+                    this.y += (targetY - this.y) * 0.06;
+
+                    this.attackTimer--;
+                    if (this.attackTimer <= 0 && Math.abs(dx) < 700) {
+                        this.attackTimer = 110;
+                        // Summon 2 homing-ish bat projectiles
+                        for (let b = -1; b <= 1; b += 2) {
+                            enemyProjectiles.push({
+                                x: this.x + this.w / 2,
+                                y: this.y + 25,
+                                vx: dir * 6.5,
+                                vy: b * 2.2,
+                                r: 10,
+                                isBat: true,
+                                color: '#38bdf8'
+                            });
+                        }
+                    }
+                } else {
+                    // FILIBUSTER_BRUTE: Heavy Victorian Nosferatu ground charger
+                    this.vx = dir * (Math.abs(dx) < 260 ? 4.4 : 2.3);
+                    this.x += this.vx;
+                    this.vy += 0.65;
+                    this.y += this.vy;
+                    if (this.y + this.h >= gy) {
+                        this.y = gy - this.h;
+                        this.vy = 0;
+                    }
+                    // Periodic leap slam
+                    this.attackTimer--;
+                    if (this.attackTimer <= 0 && this.y + this.h >= gy - 2) {
+                        this.vy = -12;
+                        this.attackTimer = 120;
+                    }
+                }
+
+                if (this.x < cameraX - 500) this.active = false;
+            }
+
+            draw(ctx, camX) {
+                ctx.save();
+                const cx = this.x - camX + this.w / 2;
+                const cy = this.y + this.h / 2;
+                ctx.translate(cx, cy);
+
+                const facing = player.x > this.x ? 1 : -1;
+                ctx.scale(facing, 1);
+
+                const wingFlap = Math.sin(this.phase * 2.2) * 18;
+
+                // 1. Articulated Bat-Wing Vampire Cape
+                ctx.fillStyle = this.hitFlash > 0 ? '#ffffff' : '#3b0764';
+                ctx.strokeStyle = '#e11d48';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(-8, -18);
+                ctx.quadraticCurveTo(-38, -28 + wingFlap, -48, 8 + wingFlap);
+                ctx.lineTo(-30, 18);
+                ctx.lineTo(-22, 34);
+                ctx.lineTo(-6, 22);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                if (this.type === 'SQUAD_MAGE') {
+                    // --- TYPE 1: THE SQUAD BAT-MAGE ---
+                    // Crisp White/Burgundy Vampire Blazer
+                    ctx.fillStyle = this.hitFlash > 0 ? '#ffffff' : '#f8fafc';
+                    ctx.beginPath();
+                    ctx.roundRect(-14, -10, 28, 38, 5);
+                    ctx.fill();
+                    // Crimson V-Lapel
+                    ctx.fillStyle = '#9f1239';
+                    ctx.beginPath();
+                    ctx.moveTo(-8, -10);
+                    ctx.lineTo(8, -10);
+                    ctx.lineTo(0, 12);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // Long flowing dark hair
+                    ctx.fillStyle = '#090d16';
+                    ctx.beginPath();
+                    ctx.roundRect(-15, -36, 24, 30, 8);
+                    ctx.fill();
+
+                    // Vampire Pale Face
+                    ctx.fillStyle = '#e2e8f0';
+                    ctx.beginPath();
+                    ctx.arc(2, -24, 12, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Iconic Large Gold Hoop Earrings
+                    ctx.strokeStyle = '#fbbf24';
+                    ctx.lineWidth = 2.5;
+                    ctx.beginPath();
+                    ctx.arc(-6, -18, 7, 0, Math.PI * 2);
+                    ctx.stroke();
+
+                    // Thick Dark-Rimmed Glasses
+                    ctx.strokeStyle = '#0f172a';
+                    ctx.lineWidth = 2.5;
+                    ctx.strokeRect(-1, -29, 8, 6);
+                    ctx.strokeRect(8, -29, 7, 6);
+
+                    // Glowing Crimson Eyes & Sharp Fangs
+                    ctx.fillStyle = '#ff0055';
+                    ctx.fillRect(2, -27, 3, 3);
+                    ctx.fillRect(10, -27, 3, 3);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.moveTo(4, -16); ctx.lineTo(6, -11); ctx.lineTo(8, -16);
+                    ctx.moveTo(9, -16); ctx.lineTo(11, -11); ctx.lineTo(13, -16);
+                    ctx.fill();
+
+                } else if (this.type === 'SPEAKER_ARCH') {
+                    // --- TYPE 2: THE SPEAKER ARCH-VAMP ---
+                    // High Ornate Vampire Collar
+                    ctx.fillStyle = '#0f172a';
+                    ctx.strokeStyle = '#38bdf8';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(-16, -8);
+                    ctx.lineTo(-26, -34);
+                    ctx.lineTo(10, -24);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // Teal / Navy Power Suit
+                    ctx.fillStyle = this.hitFlash > 0 ? '#ffffff' : '#0284c7';
+                    ctx.beginPath();
+                    ctx.roundRect(-15, -10, 30, 42, 4);
+                    ctx.fill();
+
+                    // Signature Oversized Pearl Necklace
+                    ctx.fillStyle = '#f8fafc';
+                    for (let p = -10; p <= 10; p += 5) {
+                        ctx.beginPath();
+                        ctx.arc(p, -8 + Math.abs(p) * 0.25, 2.8, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+
+                    // Coiffed Silver-Streaked Vampire Hair & Pale Face
+                    ctx.fillStyle = '#334155';
+                    ctx.beginPath();
+                    ctx.arc(0, -26, 15, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#f1f5f9';
+                    ctx.beginPath();
+                    ctx.arc(2, -23, 11.5, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Glowing Eyes & Fangs
+                    ctx.fillStyle = '#ff0055';
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = '#ff0055';
+                    ctx.fillRect(3, -26, 4, 3);
+                    ctx.fillRect(9, -26, 4, 3);
+                    ctx.shadowBlur = 0;
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(4, -16, 2.5, 6);
+                    ctx.fillRect(9, -16, 2.5, 6);
+
+                } else {
+                    // --- TYPE 3: THE FILIBUSTER NOSFERATU ---
+                    // Bulky Victorian Cloak & Pinstripe Suit
+                    ctx.fillStyle = this.hitFlash > 0 ? '#ffffff' : '#1e1b4b';
+                    ctx.beginPath();
+                    ctx.roundRect(-20, -14, 40, 48, 8);
+                    ctx.fill();
+
+                    // Perched Low Spectacles & Balding Nosferatu Dome
+                    ctx.fillStyle = '#cbd5e1';
+                    ctx.beginPath();
+                    ctx.arc(2, -24, 14, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Pointed Bat Ears
+                    ctx.beginPath();
+                    ctx.moveTo(-10, -24); ctx.lineTo(-18, -36); ctx.lineTo(-4, -30);
+                    ctx.fill();
+
+                    // Low Wire Glasses
+                    ctx.strokeStyle = '#fbbf24';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(4, -22, 10, 5);
+
+                    // Red Eyes & Heavy Jowl Fangs
+                    ctx.fillStyle = '#ef4444';
+                    ctx.fillRect(5, -27, 4, 4);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(5, -14, 3, 7);
+                    ctx.fillRect(11, -14, 3, 7);
+                }
+
+                ctx.restore();
+
+                // Overhead Health Bar & Caricature Class Label
+                const barW = 48;
+                const bx = this.x - camX + (this.w - barW) / 2;
+                const by = this.y - 18;
+                ctx.fillStyle = 'rgba(0,0,0,0.75)';
+                ctx.fillRect(bx, by, barW, 5);
+                ctx.fillStyle = '#f43f5e';
+                ctx.fillRect(bx, by, barW * (this.health / this.maxHealth), 5);
+            }
+        }
+
+        /* ============================================================================
+         * 4. PROJECTILES, SPECIAL CRATES, EXPLOSIONS & PARTICLE FOUNTAINS
+         * ============================================================================ */
+        let player = new AbrahamLincoln();
+        let playerBullets = [];
+        let enemyProjectiles = [];
+        let vampires = [];
+        let particles = [];
+        let shellCasings = [];
+        let scorePopups = [];
+        let weaponCrates = [];
+        let activeExplosions = [];
+        let lightningArcs = [];
+        let checkpointPillars = [];
+        let spawnCounter = 0;
+        let crateSpawnCounter = 0;
+
+        function spawnWeaponCrate(x, y, forcedType = null) {
+            const keys = Object.keys(SPECIAL_WEAPON_SPECS);
+            const chosenKey = forcedType || keys[Math.floor(Math.random() * keys.length)];
+            weaponCrates.push({
+                x,
+                y,
+                baseY: y,
+                w: 46,
+                h: 46,
+                weaponType: chosenKey,
+                phase: Math.random() * Math.PI * 2,
+                active: true
+            });
+        }
+
+        function triggerExplosion(x, y, radius, damage, color = '#f97316') {
+            sound.sfxExplosion();
+            screenShake = Math.max(screenShake, 16);
+            triggerVibration(220, 0.7, 0.95);
+            activeExplosions.push({
+                x,
+                y,
+                radius: 10,
+                maxRadius: radius,
+                color,
+                alpha: 1.0
+            });
+            spawnParticles(x, y, 45, color, 14);
+            spawnParticles(x, y, 25, '#fde047', 10);
+
+            // Deal AOE blast damage to all vampires in radius
+            for (const v of vampires) {
+                if (!v.active) continue;
+                const vx = v.x + v.w / 2;
+                const vy = v.y + v.h / 2;
+                const dist = Math.hypot(vx - x, vy - y);
+                if (dist <= radius + v.w * 0.5) {
+                    v.health -= damage;
+                    v.hitFlash = 7;
+                    if (v.health <= 0) {
+                        obliterateVampire(v, false);
+                    }
+                }
+            }
+        }
+
+        function fireLincolnWeapon() {
+            const dir = player.facing;
+            const muzzleX = dir === 1 ? player.x + player.w + 26 : player.x - 26;
+            const muzzleY = player.invincibleTimer > 0 ? player.y + 24 : player.y + 42;
+
+            // 1. If riding the Flying Cosmic Unicorn, always fire the Tri-Beam Rainbow Horn Laser PLUS active weapon!
+            if (player.invincibleTimer > 0) {
+                const beamColors = ['#ff007f', '#00f0ff', '#ffea00'];
+                [-2.2, 0, 2.2].forEach((vyOff, idx) => {
+                    playerBullets.push({
+                        x: muzzleX + dir * 18,
+                        y: muzzleY + idx * 6,
+                        vx: dir * 21,
+                        vy: vyOff,
+                        w: 36,
+                        h: 7,
+                        power: 3,
+                        pierce: 2,
+                        kind: 'LASER',
+                        color: beamColors[idx]
+                    });
+                });
+            }
+
+            // 2. Check if a 10-Second Temporary Special Weapon is active
+            if (player.tempSpecialWeapon && player.tempWeaponTimer > 0) {
+                const spec = SPECIAL_WEAPON_SPECS[player.tempSpecialWeapon];
+                player.shootCooldown = player.invincibleTimer > 0 ? Math.max(4, Math.floor(spec.cooldown * 0.65)) : spec.cooldown;
+
+                if (player.tempSpecialWeapon === 'GRENADE_LAUNCHER') {
+                    // Lobbed bouncing plasma grenade with gravity & AOE explosion
+                    playerBullets.push({
+                        x: muzzleX,
+                        y: muzzleY - 4,
+                        vx: dir * 13.5,
+                        vy: -8.5,
+                        w: 16,
+                        h: 16,
+                        power: 6,
+                        kind: 'GRENADE',
+                        bounces: 1,
+                        aoeRadius: 135,
+                        color: '#f97316'
+                    });
+                } else if (player.tempSpecialWeapon === 'SOLAR_NAPALM') {
+                    // Expanding stream of Solar Napalm fireballs
+                    for (let i = -1; i <= 1; i++) {
+                        playerBullets.push({
+                            x: muzzleX,
+                            y: muzzleY,
+                            vx: dir * (11 + Math.random() * 4),
+                            vy: i * 1.8 + (Math.random() - 0.5) * 2,
+                            w: 18,
+                            h: 18,
+                            power: 1.8,
+                            pierce: 3,
+                            life: 38,
+                            kind: 'NAPALM',
+                            color: i === 0 ? '#fde047' : '#ef4444'
+                        });
+                    }
+                } else if (player.tempSpecialWeapon === 'TESLA_CANNON') {
+                    // High-velocity lightning bolt that chains between vampires on impact
+                    playerBullets.push({
+                        x: muzzleX,
+                        y: muzzleY,
+                        vx: dir * 22,
+                        vy: 0,
+                        w: 34,
+                        h: 8,
+                        power: 3.5,
+                        pierce: 2,
+                        kind: 'TESLA',
+                        color: '#38bdf8'
+                    });
+                } else if (player.tempSpecialWeapon === 'CLUSTER_BAZOOKA') {
+                    // Heavy rocket that splits into 3 warheads or detonates on contact
+                    playerBullets.push({
+                        x: muzzleX,
+                        y: muzzleY - 4,
+                        vx: dir * 15,
+                        vy: -1.2,
+                        w: 24,
+                        h: 12,
+                        power: 5,
+                        splitTimer: 18,
+                        aoeRadius: 110,
+                        kind: 'ROCKET',
+                        color: '#eab308'
+                    });
+                }
+            } else {
+                // 3. Fire Permanent Upgraded Checkpoint Base Laser Gun (Level 1 -> Level 5+)
+                const lvl = player.baseWeaponLevel;
+
+                if (lvl === 1) {
+                    // Level 1: Single Plasma Blunderbuss
+                    playerBullets.push({
+                        x: muzzleX,
+                        y: muzzleY,
+                        vx: dir * 17,
+                        vy: 0,
+                        w: 24,
+                        h: 6,
+                        power: 1.2,
+                        pierce: 1,
+                        kind: 'LASER',
+                        color: '#00f0ff'
+                    });
+                    player.shootCooldown = 11;
+                } else if (lvl === 2) {
+                    // Level 2: Twin-Linked Rail Repeater (2 parallel beams)
+                    [-6, 6].forEach((offsetY, i) => {
+                        playerBullets.push({
+                            x: muzzleX,
+                            y: muzzleY + offsetY,
+                            vx: dir * 19,
+                            vy: 0,
+                            w: 28,
+                            h: 6,
+                            power: 1.4,
+                            pierce: 1,
+                            kind: 'LASER',
+                            color: i === 0 ? '#00f0ff' : '#ff007f'
+                        });
+                    });
+                    player.shootCooldown = 10;
+                } else if (lvl === 3) {
+                    // Level 3: Tri-Spread Freedom Cannon (3-way fan spread)
+                    [-2.2, 0, 2.2].forEach((vyVal, i) => {
+                        playerBullets.push({
+                            x: muzzleX,
+                            y: muzzleY + (i - 1) * 4,
+                            vx: dir * 20,
+                            vy: vyVal,
+                            w: 30,
+                            h: 7,
+                            power: 1.7,
+                            pierce: 1,
+                            kind: 'LASER',
+                            color: i === 1 ? '#a855f7' : '#00f0ff'
+                        });
+                    });
+                    player.shootCooldown = 9;
+                } else if (lvl === 4) {
+                    // Level 4: Penta-Star Gatling Laser (5-way piercing barrage)
+                    [-3.6, -1.8, 0, 1.8, 3.6].forEach((vyVal, i) => {
+                        playerBullets.push({
+                            x: muzzleX,
+                            y: muzzleY,
+                            vx: dir * 21,
+                            vy: vyVal,
+                            w: 32,
+                            h: 7,
+                            power: 2.0,
+                            pierce: 2,
+                            kind: 'LASER',
+                            color: i % 2 === 0 ? '#f43f5e' : '#00f0ff'
+                        });
+                    });
+                    player.shootCooldown = 8;
+                } else {
+                    // Level 5+: Omega Emancipation Beam Array (7-way storm + drone homing laser)
+                    [-4.5, -3.0, -1.5, 0, 1.5, 3.0, 4.5].forEach((vyVal, i) => {
+                        playerBullets.push({
+                            x: muzzleX,
+                            y: muzzleY,
+                            vx: dir * 22,
+                            vy: vyVal,
+                            w: 36,
+                            h: 8,
+                            power: 2.4 + (lvl - 5) * 0.4,
+                            pierce: 3,
+                            kind: 'LASER',
+                            color: ['#ffea00', '#ff007f', '#00f0ff'][i % 3]
+                        });
+                    });
+                    player.shootCooldown = 7;
+                }
+            }
+
+            player.recoil = 9;
+            sound.sfxShoot();
+
+            shellCasings.push({
+                x: player.x + player.w / 2,
+                y: muzzleY,
+                vx: -dir * (Math.random() * 4 + 2),
+                vy: -Math.random() * 5 - 3,
+                angle: 0,
+                life: 45
+            });
+            spawnParticles(muzzleX, muzzleY, 6, '#00f0ff', 5);
+        }
+
+        function spawnScorePopup(x, y, text, color = '#fbbf24') {
+            scorePopups.push({ x, y, text, color, life: 45, maxLife: 45 });
+        }
+
+        function spawnParticles(x, y, count, color, speed = 8) {
+            for (let i = 0; i < count; i++) {
+                const ang = Math.random() * Math.PI * 2;
+                const spd = Math.random() * speed + 1.5;
+                particles.push({
+                    x, y,
+                    vx: Math.cos(ang) * spd,
+                    vy: Math.sin(ang) * spd - 1.5,
+                    size: Math.random() * 4.5 + 2,
+                    color,
+                    alpha: 1,
+                    decay: Math.random() * 0.025 + 0.015
+                });
+            }
+        }
+
+        function obliterateVampire(v, isUnicornKill = false) {
+            v.active = false;
+            const pts = isUnicornKill ? 250 : 150;
+            score += pts;
+            sound.sfxVampireExplode();
+            screenShake = isUnicornKill ? 16 : 9;
+            hitStopFrames = isUnicornKill ? 3 : 2;
+            triggerVibration(isUnicornKill ? 200 : 100, 0.5, 0.9);
+
+            if (!isUnicornKill && player.invincibleTimer <= 0) {
+                player.potionCharge = Math.min(100, player.potionCharge + 22);
+            }
+
+            const cx = v.x + v.w / 2;
+            const cy = v.y + v.h / 2;
+            spawnScorePopup(
+                cx,
+                v.y - 10,
+                isUnicornKill ? `+${pts} UNICORN OBLITERATION!` : `+${pts}`,
+                isUnicornKill ? '#00f0ff' : '#fbbf24'
+            );
+
+            // Particle Neon Gore & Rainbow Lightning Burst
+            spawnParticles(cx, cy, isUnicornKill ? 65 : 40, '#f43f5e', 13);
+            spawnParticles(cx, cy, isUnicornKill ? 50 : 30, '#00f0ff', 11);
+            spawnParticles(cx, cy, 25, '#fbbf24', 9);
+        }
+
+        /* ============================================================================
+         * 5. 5-LAYER PARALLAX CYBER-GOTHIC SPACE BACKGROUND RENDERER
+         * ============================================================================ */
+        function renderEnvironment(ctx, camX) {
+            const w = canvas.width;
+            const h = canvas.height;
+            const gy = getGroundY();
+
+            // LAYER 1: Deep Space Trippy Nebula Gradient
+            const nebGrad = ctx.createLinearGradient(0, 0, 0, h);
+            if (player.invincibleTimer > 0) {
+                const hue = (worldTime * 6) % 360;
+                nebGrad.addColorStop(0, `hsl(${hue}, 70%, 12%)`);
+                nebGrad.addColorStop(0.5, `hsl(${(hue + 90) % 360}, 80%, 16%)`);
+                nebGrad.addColorStop(1, '#05010d');
+            } else {
+                nebGrad.addColorStop(0, '#04020c');
+                nebGrad.addColorStop(0.55, '#13072e');
+                nebGrad.addColorStop(1, '#1e0b36');
+            }
+            ctx.fillStyle = nebGrad;
+            ctx.fillRect(0, 0, w, h);
+
+            // LAYER 2: Pulsing Starfield & Nebula Clouds
+            for (const s of stars) {
+                const sx = ((s.x - camX * 0.1) % w + w) % w;
+                const alpha = 0.4 + Math.sin(worldTime * 0.05 + s.twinkle) * 0.4;
+                ctx.fillStyle = `hsla(${s.hue}, 100%, 75%, ${alpha})`;
+                ctx.beginPath();
+                ctx.arc(sx, s.y % (gy - 40), s.r, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // LAYER 3: Floating Shattered Cyber-Capitol Domes in Deep Space (0.25x Parallax)
+            const domeSpacing = 950;
+            const startDome = Math.floor((camX * 0.25) / domeSpacing);
+            ctx.save();
+            for (let i = startDome - 1; i <= startDome + 2; i++) {
+                const dx = i * domeSpacing - (camX * 0.25) + 300;
+                const dy = gy - 230 + Math.sin(worldTime * 0.02 + i) * 14;
+                ctx.fillStyle = 'rgba(17, 24, 39, 0.7)';
+                ctx.strokeStyle = 'rgba(168, 85, 247, 0.35)';
+                ctx.lineWidth = 2;
+                // Dome Silhouette
+                ctx.beginPath();
+                ctx.arc(dx, dy, 95, Math.PI, 0);
+                ctx.lineTo(dx + 120, dy + 70);
+                ctx.lineTo(dx - 120, dy + 70);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                // Spire
+                ctx.fillRect(dx - 4, dy - 135, 8, 40);
+            }
+            ctx.restore();
+
+            // LAYER 4: Gothic Cyber-Victorian Pillars & Archways (0.55x Parallax)
+            const pillarSpacing = 320;
+            const startPillar = Math.floor((camX * 0.55) / pillarSpacing);
+            for (let i = startPillar - 1; i <= startPillar + Math.ceil(w / pillarSpacing) + 1; i++) {
+                const px = i * pillarSpacing - (camX * 0.55);
+                ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+                ctx.strokeStyle = 'rgba(0, 240, 255, 0.22)';
+                ctx.lineWidth = 1.5;
+                ctx.fillRect(px, 80, 38, gy - 80);
+                ctx.strokeRect(px, 80, 38, gy - 80);
+            }
+
+            // LAYER 5: Perspective Synthwave / Space-Techno Neon Grid Floor
+            ctx.fillStyle = '#070312';
+            ctx.fillRect(0, gy, w, h - gy);
+
+            ctx.save();
+            ctx.strokeStyle = player.invincibleTimer > 0 ? `hsl(${(worldTime * 10) % 360}, 100%, 60%)` : '#00f0ff';
+            ctx.shadowBlur = 12;
+            ctx.shadowColor = '#00f0ff';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(0, gy);
+            ctx.lineTo(w, gy);
+            ctx.stroke();
+
+            // Perspective Grid Lines
+            ctx.lineWidth = 1.2;
+            ctx.strokeStyle = 'rgba(255, 0, 127, 0.38)';
+            const gridOffset = (camX % 80);
+            for (let x = -gridOffset; x < w + 80; x += 80) {
+                ctx.beginPath();
+                ctx.moveTo(x, gy);
+                ctx.lineTo(x + (x - w / 2) * 0.7, h);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        /* ============================================================================
+         * 6. MAIN 60FPS GAME LOOP
+         * ============================================================================ */
+        function updateHUD() {
+            document.getElementById('healthBar').style.width = `${Math.max(0, (player.health / player.maxHealth) * 100)}%`;
+            document.getElementById('healthText').textContent = `${Math.max(0, Math.ceil(player.health))} / ${player.maxHealth}`;
+            document.getElementById('scoreDisplay').textContent = String(score).padStart(6, '0');
+
+            const potionBar = document.getElementById('potionBar');
+            const potionStatus = document.getElementById('potionStatus');
+            const invBanner = document.getElementById('invincibleBanner');
+            const psychOverlay = document.getElementById('psychedelicOverlay');
+            const specialRing = document.getElementById('specialRing');
+
+            if (player.invincibleTimer > 0) {
+                const pct = (player.invincibleTimer / 900) * 100;
+                potionBar.style.width = `${pct}%`;
+                potionStatus.textContent = 'OVERDRIVE!';
+                invBanner.classList.remove('hidden');
+                invBanner.classList.add('flex');
+                psychOverlay.classList.remove('hidden');
+                document.getElementById('invincibleCountdown').textContent = `${(player.invincibleTimer / 60).toFixed(1)}s`;
+                specialRing.setAttribute('stroke-dashoffset', String(100 - pct));
+            } else {
+                potionBar.style.width = `${player.potionCharge}%`;
+                invBanner.classList.add('hidden');
+                invBanner.classList.remove('flex');
+                psychOverlay.classList.add('hidden');
+                specialRing.setAttribute('stroke-dashoffset', String(100 - player.potionCharge));
+                if (player.potionCharge >= 100) {
+                    potionStatus.textContent = 'READY!';
+                    potionStatus.className = 'text-[10px] font-extrabold text-emerald-300 animate-pulse';
+                } else {
+                    potionStatus.textContent = `${Math.floor(player.potionCharge)}%`;
+                    potionStatus.className = 'text-[10px] font-bold text-slate-400';
+                }
+            }
+
+            // Update Base Checkpoint Gun & 10-Second Special Weapon HUD
+            const currentDist = Math.max(0, Math.floor((player.x - 180) / 5));
+            const remainingDist = Math.max(0, nextCheckpointDist - currentDist);
+            document.getElementById('checkpointText').textContent = `NEXT CP: ${remainingDist}m`;
+            document.getElementById('baseGunLabel').textContent = getBaseGunName(player.baseWeaponLevel);
+
+            const tempHud = document.getElementById('tempWeaponHud');
+            if (player.tempSpecialWeapon && player.tempWeaponTimer > 0) {
+                const spec = SPECIAL_WEAPON_SPECS[player.tempSpecialWeapon];
+                tempHud.classList.remove('hidden');
+                tempHud.classList.add('flex');
+                document.getElementById('tempWeaponName').textContent = `🔥 ${spec.name}`;
+                document.getElementById('tempWeaponTime').textContent = `${(player.tempWeaponTimer / 60).toFixed(1)}s`;
+                document.getElementById('tempWeaponBar').style.width = `${(player.tempWeaponTimer / 600) * 100}%`;
+            } else {
+                tempHud.classList.add('hidden');
+                tempHud.classList.remove('flex');
+            }
+
+            const cpBanner = document.getElementById('checkpointBanner');
+            if (checkpointBannerTimer > 0) {
+                checkpointBannerTimer--;
+                cpBanner.classList.remove('hidden');
+                cpBanner.classList.add('flex');
+            } else {
+                cpBanner.classList.add('hidden');
+                cpBanner.classList.remove('flex');
+            }
+        }
+
+        function gameLoop() {
+            if (gameState !== 'PLAYING') return;
+            requestAnimationFrame(gameLoop);
+
+            if (hitStopFrames > 0) {
+                hitStopFrames--;
+                return;
+            }
+
+            worldTime++;
+            pollXboxGamepad();
+
+            // Consolidate Keyboard + Touch + Xbox Controller Inputs
+            const jumpHeld = Boolean(keys['Space'] || keys['KeyW'] || keys['ArrowUp'] || touchInput.jump || padInput.jump);
+            const rollHeld = Boolean(keys['ShiftLeft'] || keys['ShiftRight'] || keys['KeyK'] || touchInput.roll || padInput.roll);
+            const specHeld = Boolean(keys['KeyE'] || keys['KeyL'] || touchInput.special || padInput.special);
+
+            const inputState = {
+                left: Boolean(keys['KeyA'] || keys['ArrowLeft'] || touchInput.left || padInput.left),
+                right: Boolean(keys['KeyD'] || keys['ArrowRight'] || touchInput.right || padInput.right),
+                up: Boolean(keys['KeyW'] || keys['ArrowUp'] || touchInput.up || padInput.up),
+                down: Boolean(keys['KeyS'] || keys['ArrowDown'] || touchInput.down || padInput.down),
+                jumpHeld,
+                jumpJustPressed: jumpHeld && !prevJumpPressed,
+                rollJustPressed: rollHeld && !prevRollPressed,
+                specialJustPressed: specHeld && !prevSpecialPressed,
+                shoot: Boolean(keys['KeyJ'] || keys['KeyZ'] || keys['MouseShoot'] || touchInput.shoot || padInput.shoot)
+            };
+
+            prevJumpPressed = jumpHeld;
+            prevRollPressed = rollHeld;
+            prevSpecialPressed = specHeld;
+
+            // Active Platforms around Player
+            const curChunk = Math.floor(player.x / 900);
+            const activePlatforms = [
+                ...getPlatformsForChunk(curChunk - 1),
+                ...getPlatformsForChunk(curChunk),
+                ...getPlatformsForChunk(curChunk + 1)
+            ];
+
+            // Update Abraham Lincoln & Flying Unicorn
+            player.update(inputState, activePlatforms);
+
+            // Check Distance for Checkpoint Base Laser Gun Upgrade (Every 1,000m)
+            const currentDist = Math.max(0, Math.floor((player.x - 180) / 5));
+            if (currentDist >= nextCheckpointDist) {
+                const cpX = player.x + 120;
+                nextCheckpointDist += 1000;
+                player.baseWeaponLevel++;
+                checkpointBannerTimer = 190; // ~3.1s banner display
+                sound.sfxCheckpointUpgrade();
+                screenShake = 12;
+                triggerVibration(260, 0.6, 0.9);
+
+                const newGunName = getBaseGunName(player.baseWeaponLevel);
+                document.getElementById('checkpointBannerTitle').textContent = `⚡ CHECKPOINT REACHED! BASE LASER UPGRADED ⚡`;
+                document.getElementById('checkpointBannerSub').textContent = newGunName;
+                spawnScorePopup(player.x + player.w / 2, player.y - 35, `UPGRADED: ${newGunName}!`, '#00f0ff');
+                spawnParticles(player.x + player.w / 2, player.y + 40, 55, '#00f0ff', 13);
+
+                // Spawn glowing Checkpoint Beacon Pillar in world + drop a physical Special Weapon Crate ahead!
+                checkpointPillars.push({ x: cpX, label: `CHECKPOINT // LVL ${player.baseWeaponLevel}` });
+                spawnWeaponCrate(player.x + 360, getGroundY() - 62);
+            }
+
+            // Periodically spawn Physical Special Weapon Crates in the battlefield for Lincoln to touch
+            crateSpawnCounter++;
+            if (crateSpawnCounter >= 460) {
+                crateSpawnCounter = 0;
+                const crateX = cameraX + canvas.width + 100;
+                const elevated = Math.random() > 0.5 ? 125 : 0;
+                spawnWeaponCrate(crateX, getGroundY() - 56 - elevated);
+            }
+
+            // Update & Check Physical Touch Collision with Special Weapon Crates
+            for (let i = weaponCrates.length - 1; i >= 0; i--) {
+                const c = weaponCrates[i];
+                c.phase += 0.08;
+                c.y = c.baseY + Math.sin(c.phase) * 8;
+
+                // Lincoln must physically touch the crate to equip the 10-second special weapon!
+                if (c.active &&
+                    player.x < c.x + c.w &&
+                    player.x + player.w > c.x &&
+                    player.y < c.y + c.h &&
+                    player.y + player.h > c.y) {
+                    c.active = false;
+                    player.tempSpecialWeapon = c.weaponType;
+                    player.tempWeaponTimer = 600; // 10.0 seconds @ 60fps
+                    const spec = SPECIAL_WEAPON_SPECS[c.weaponType];
+                    sound.sfxCratePickup();
+                    triggerVibration(160, 0.6, 0.8);
+                    spawnParticles(c.x + c.w / 2, c.y + c.h / 2, 40, spec.color, 11);
+                    spawnScorePopup(
+                        c.x + c.w / 2,
+                        c.y - 15,
+                        `EQUIPPED ${spec.name} (10s)!`,
+                        spec.color
+                    );
+                }
+
+                if (!c.active || c.x < cameraX - 300) {
+                    weaponCrates.splice(i, 1);
+                }
+            }
+
+            // Firing Weapon System (Base Upgraded Laser OR 10s Special Weapon + Unicorn Tri-Beam)
+            if (inputState.shoot && player.shootCooldown <= 0 && player.drinkingTimer <= 0 && !player.isRolling) {
+                fireLincolnWeapon();
+            }
+
+            // Smooth Look-Ahead Camera
+            const targetCamX = player.x - canvas.width * 0.28 + player.facing * 65;
+            cameraX += (targetCamX - cameraX) * 0.12;
+            if (cameraX < 0) cameraX = 0;
+
+            // Update Player Projectiles (Lasers, Bouncing Grenades, Napalm, Tesla Bolts & Cluster Rockets)
+            const gy = getGroundY();
+            for (let i = playerBullets.length - 1; i >= 0; i--) {
+                const b = playerBullets[i];
+                b.x += b.vx;
+                if (b.vy !== undefined) b.y += b.vy;
+
+                if (b.kind === 'GRENADE') {
+                    b.vy += 0.46; // Gravity arc for Grenade Launcher
+                    if (b.y + b.h >= gy) {
+                        b.y = gy - b.h;
+                        if (b.bounces > 0) {
+                            b.bounces--;
+                            b.vy = -6.5;
+                            b.vx *= 0.78;
+                            spawnParticles(b.x, b.y + b.h, 8, '#f97316', 5);
+                        } else {
+                            triggerExplosion(b.x, b.y, b.aoeRadius || 135, b.power, '#f97316');
+                            playerBullets.splice(i, 1);
+                            continue;
+                        }
+                    }
+                } else if (b.kind === 'ROCKET') {
+                    if (worldTime % 2 === 0) {
+                        spawnParticles(b.x, b.y + 6, 1, '#eab308', 2);
+                    }
+                    if (b.splitTimer !== undefined) {
+                        b.splitTimer--;
+                        if (b.splitTimer === 0) {
+                            // Split cluster rocket into 3 micro-warheads!
+                            [-3.2, 3.2].forEach(vyCluster => {
+                                playerBullets.push({
+                                    x: b.x,
+                                    y: b.y,
+                                    vx: b.vx * 1.05,
+                                    vy: vyCluster,
+                                    w: 18,
+                                    h: 9,
+                                    power: 3.5,
+                                    aoeRadius: 95,
+                                    kind: 'ROCKET',
+                                    color: '#fde047'
+                                });
+                            });
+                        }
+                    }
+                    if (b.y + b.h >= gy) {
+                        triggerExplosion(b.x, gy - 5, b.aoeRadius || 105, b.power, '#eab308');
+                        playerBullets.splice(i, 1);
+                        continue;
+                    }
+                } else if (b.kind === 'NAPALM') {
+                    b.w += 0.35;
+                    b.h += 0.35;
+                    b.life--;
+                    if (b.y + b.h >= gy) {
+                        b.y = gy - b.h;
+                        b.vy = 0;
+                        b.vx *= 0.85;
+                    }
+                    if (b.life <= 0) {
+                        playerBullets.splice(i, 1);
+                        continue;
+                    }
+                }
+
+                if (b.x > cameraX + canvas.width + 240 || b.x < cameraX - 240 || b.y < -150) {
+                    playerBullets.splice(i, 1);
+                }
+            }
+
+            // Update Active Explosions & Tesla Lightning Arcs
+            for (let i = activeExplosions.length - 1; i >= 0; i--) {
+                const ex = activeExplosions[i];
+                ex.radius += (ex.maxRadius - ex.radius) * 0.28;
+                ex.alpha -= 0.06;
+                if (ex.alpha <= 0) activeExplosions.splice(i, 1);
+            }
+            for (let i = lightningArcs.length - 1; i >= 0; i--) {
+                lightningArcs[i].life--;
+                if (lightningArcs[i].life <= 0) lightningArcs.splice(i, 1);
+            }
+
+            // Update Enemy Projectiles
+            for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
+                const ep = enemyProjectiles[i];
+                ep.x += ep.vx;
+                ep.y += ep.vy;
+
+                // Check collision with Lincoln
+                if (ep.x + ep.r > player.x && ep.x - ep.r < player.x + player.w &&
+                    ep.y + ep.r > player.y && ep.y - ep.r < player.y + player.h) {
+                    if (player.invincibleTimer > 0 || player.isRolling) {
+                        spawnParticles(ep.x, ep.y, 10, '#00f0ff', 6);
+                        enemyProjectiles.splice(i, 1);
+                        continue;
+                    } else if (player.drinkingTimer <= 0) {
+                        player.health -= 8;
+                        screenShake = 8;
+                        triggerVibration(110, 0.5, 0.7);
+                        spawnParticles(ep.x, ep.y, 14, '#f43f5e', 7);
+                        enemyProjectiles.splice(i, 1);
+                        continue;
+                    }
+                }
+
+                if (ep.x < cameraX - 200 || ep.x > cameraX + canvas.width + 200 || ep.y < -100 || ep.y > canvas.height + 100) {
+                    enemyProjectiles.splice(i, 1);
+                }
+            }
+
+            // Spawn Caricature Politician Vampires
+            spawnCounter--;
+            if (spawnCounter <= 0 && vampires.length < 10) {
+                const types = ['SQUAD_MAGE', 'SPEAKER_ARCH', 'FILIBUSTER_BRUTE'];
+                const chosen = types[Math.floor(Math.random() * types.length)];
+                const spawnX = cameraX + canvas.width + 80 + Math.random() * 140;
+                const spawnY = chosen === 'FILIBUSTER_BRUTE' ? gy - 100 : gy - 170;
+                vampires.push(new CaricatureVampire(spawnX, spawnY, chosen));
+                spawnCounter = Math.max(38, 92 - player.baseWeaponLevel * 7);
+            }
+
+            // Update Vampires & Combat Collisions
+            for (let i = 0; i < vampires.length; i++) {
+                const v = vampires[i];
+                if (!v.active) continue;
+                v.update(player);
+
+                // 1. Bullet / Special Projectile vs Vampire
+                for (let j = playerBullets.length - 1; j >= 0; j--) {
+                    const b = playerBullets[j];
+                    if (b.x < v.x + v.w && b.x + b.w > v.x &&
+                        b.y < v.y + v.h && b.y + b.h > v.y) {
+
+                        if (b.kind === 'GRENADE' || b.kind === 'ROCKET') {
+                            triggerExplosion(b.x, b.y, b.aoeRadius || 125, b.power, b.color);
+                            playerBullets.splice(j, 1);
+                            if (!v.active) break;
+                            continue;
+                        }
+
+                        if (b.kind === 'TESLA') {
+                            // Chain high-voltage lightning to up to 2 nearby vampires!
+                            let chains = 0;
+                            for (const other of vampires) {
+                                if (other !== v && other.active && Math.hypot(other.x - v.x, other.y - v.y) < 280) {
+                                    other.health -= 2.2;
+                                    other.hitFlash = 6;
+                                    lightningArcs.push({
+                                        x1: v.x + v.w / 2,
+                                        y1: v.y + v.h / 2,
+                                        x2: other.x + other.w / 2,
+                                        y2: other.y + other.h / 2,
+                                        life: 10
+                                    });
+                                    if (other.health <= 0) obliterateVampire(other, false);
+                                    if (++chains >= 2) break;
+                                }
+                            }
+                        }
+
+                        v.health -= b.power;
+                        v.hitFlash = 5;
+                        spawnParticles(b.x, b.y, 10, b.color || '#00f0ff', 7);
+
+                        if (b.pierce && b.pierce > 1) {
+                            b.pierce--;
+                        } else {
+                            playerBullets.splice(j, 1);
+                        }
+
+                        if (v.health <= 0) {
+                            obliterateVampire(v, false);
+                            break;
+                        }
+                    }
+                }
+
+                // 2. Lincoln / Flying Unicorn vs Vampire Contact (Generous hitbox when riding Unicorn!)
+                const mountPadX = player.invincibleTimer > 0 ? 34 : 0;
+                const mountPadY = player.invincibleTimer > 0 ? 22 : 0;
+                if (v.active &&
+                    player.x - mountPadX < v.x + v.w && player.x + player.w + mountPadX > v.x &&
+                    player.y - mountPadY < v.y + v.h && player.y + player.h + mountPadY > v.y) {
+                    if (player.invincibleTimer > 0) {
+                        obliterateVampire(v, true);
+                    } else if (!player.isRolling && player.drinkingTimer <= 0) {
+                        player.health -= 0.75;
+                        screenShake = 4;
+                    }
+                }
+            }
+            vampires = vampires.filter(v => v.active);
+
+            // Check Game Over
+            if (player.health <= 0) {
+                gameState = 'GAMEOVER';
+                sound.overdrive = false;
+                sound.stop();
+                document.getElementById('psychedelicOverlay').classList.add('hidden');
+                document.getElementById('touch-layer').style.pointerEvents = 'none';
+                document.getElementById('menuTitle').innerHTML = `REPUBLIC FALLEN // <span class="text-rose-500">SCORE: ${score}</span>`;
+                document.getElementById('start-btn').textContent = '▶ TAP HERE TO RISE AGAIN';
+                const menuOverlay = document.getElementById('menu-overlay');
+                menuOverlay.style.display = 'flex';
+                menuOverlay.style.pointerEvents = 'auto';
+                return;
+            }
+
+            // Update Shell Casings & Particles
+            for (let i = shellCasings.length - 1; i >= 0; i--) {
+                const sc = shellCasings[i];
+                sc.x += sc.vx;
+                sc.y += sc.vy;
+                sc.vy += 0.45;
+                sc.angle += 0.25;
+                sc.life--;
+                if (sc.life <= 0) shellCasings.splice(i, 1);
+            }
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const pt = particles[i];
+                pt.x += pt.vx;
+                pt.y += pt.vy;
+                pt.vy += 0.22;
+                pt.alpha -= pt.decay;
+                if (pt.alpha <= 0) particles.splice(i, 1);
+            }
+
+            for (let i = scorePopups.length - 1; i >= 0; i--) {
+                scorePopups[i].y -= 1.2;
+                scorePopups[i].life--;
+                if (scorePopups[i].life <= 0) scorePopups.splice(i, 1);
+            }
+
+            /* --- RENDER FRAME --- */
+            ctx.save();
+            if (screenShake > 0) {
+                const sx = (Math.random() - 0.5) * screenShake;
+                const sy = (Math.random() - 0.5) * screenShake;
+                ctx.translate(sx, sy);
+                screenShake *= 0.85;
+                if (screenShake < 0.5) screenShake = 0;
+            }
+
+            renderEnvironment(ctx, cameraX);
+
+            // Draw Floating Cyber-Gothic Platforms
+            for (const plat of activePlatforms) {
+                if (plat.x + plat.w < cameraX - 50 || plat.x > cameraX + canvas.width + 50) continue;
+                ctx.fillStyle = '#0f172a';
+                ctx.strokeStyle = '#38bdf8';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.roundRect(plat.x - cameraX, plat.y, plat.w, plat.h, 5);
+                ctx.fill();
+                ctx.stroke();
+            }
+
+            // Draw Checkpoint Beacon Pillars in Background
+            for (const cp of checkpointPillars) {
+                if (cp.x < cameraX - 200 || cp.x > cameraX + canvas.width + 200) continue;
+                const px = cp.x - cameraX;
+                const gy = getGroundY();
+                ctx.save();
+                ctx.shadowBlur = 22;
+                ctx.shadowColor = '#00f0ff';
+                ctx.strokeStyle = '#00f0ff';
+                ctx.fillStyle = 'rgba(0, 240, 255, 0.14)';
+                ctx.lineWidth = 3;
+                ctx.fillRect(px - 18, gy - 220, 36, 220);
+                ctx.strokeRect(px - 18, gy - 220, 36, 220);
+                ctx.font = '900 11px Orbitron, sans-serif';
+                ctx.fillStyle = '#fde047';
+                ctx.textAlign = 'center';
+                ctx.fillText(cp.label, px, gy - 232);
+                ctx.restore();
+            }
+
+            // Draw Physical Special Weapon Supply Crates (Must touch to equip for 10s!)
+            for (const c of weaponCrates) {
+                const spec = SPECIAL_WEAPON_SPECS[c.weaponType];
+                const cx = c.x - cameraX + c.w / 2;
+                const cy = c.y + c.h / 2;
+                ctx.save();
+                ctx.translate(cx, cy);
+
+                // Rotating Holographic Ring
+                ctx.save();
+                ctx.rotate(worldTime * 0.06);
+                ctx.strokeStyle = spec.color;
+                ctx.shadowBlur = 18;
+                ctx.shadowColor = spec.color;
+                ctx.lineWidth = 2.5;
+                ctx.setLineDash([8, 6]);
+                ctx.beginPath();
+                ctx.arc(0, 0, 30, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+
+                // Supply Crate Box
+                ctx.fillStyle = '#0f172a';
+                ctx.strokeStyle = spec.color;
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.roundRect(-20, -20, 40, 40, 8);
+                ctx.fill();
+                ctx.stroke();
+
+                // Weapon Icon Silhouette inside Crate
+                ctx.fillStyle = spec.color;
+                ctx.beginPath();
+                ctx.roundRect(-12, -5, 24, 10, 3);
+                ctx.fill();
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '900 9px Orbitron, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('10s', 0, 3);
+
+                // Floating Pickup Banner Label
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = '#000000';
+                ctx.fillStyle = '#fde047';
+                ctx.font = '900 10px Orbitron, sans-serif';
+                ctx.fillText(`[TOUCH: ${spec.shortLabel}]`, 0, -34);
+                ctx.restore();
+            }
+
+            // Draw Shell Casings
+            ctx.fillStyle = '#fbbf24';
+            for (const sc of shellCasings) {
+                ctx.save();
+                ctx.translate(sc.x - cameraX, sc.y);
+                ctx.rotate(sc.angle);
+                ctx.fillRect(-3, -1.5, 6, 3);
+                ctx.restore();
+            }
+
+            // Draw Player Projectiles (Lasers, Grenades, Napalm Orbs, Tesla Bolts, Rockets)
+            for (const b of playerBullets) {
+                ctx.save();
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = b.color || '#00f0ff';
+                ctx.fillStyle = b.color || '#ffffff';
+
+                if (b.kind === 'GRENADE') {
+                    ctx.beginPath();
+                    ctx.arc(b.x - cameraX + 8, b.y + 8, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                } else if (b.kind === 'NAPALM') {
+                    ctx.globalAlpha = 0.85;
+                    ctx.beginPath();
+                    ctx.arc(b.x - cameraX + b.w / 2, b.y + b.h / 2, b.w / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (b.kind === 'ROCKET') {
+                    ctx.beginPath();
+                    ctx.roundRect(b.x - cameraX, b.y, b.w, b.h, 4);
+                    ctx.fill();
+                } else {
+                    ctx.fillRect(b.x - cameraX, b.y, b.w, b.h);
+                }
+                ctx.restore();
+            }
+
+            // Draw AOE Grenade / Rocket Shockwave Explosions
+            for (const ex of activeExplosions) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, ex.alpha);
+                ctx.strokeStyle = ex.color;
+                ctx.fillStyle = ex.color;
+                ctx.shadowBlur = 25;
+                ctx.shadowColor = ex.color;
+                ctx.lineWidth = 5;
+                ctx.beginPath();
+                ctx.arc(ex.x - cameraX, ex.y, ex.radius, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.globalAlpha = Math.max(0, ex.alpha * 0.35);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // Draw Tesla Chain-Lightning Arcs
+            for (const arc of lightningArcs) {
+                ctx.save();
+                ctx.strokeStyle = '#38bdf8';
+                ctx.shadowBlur = 18;
+                ctx.shadowColor = '#00f0ff';
+                ctx.lineWidth = 3.5;
+                ctx.beginPath();
+                ctx.moveTo(arc.x1 - cameraX, arc.y1);
+                const midX = (arc.x1 + arc.x2) / 2 - cameraX + (Math.random() - 0.5) * 26;
+                const midY = (arc.y1 + arc.y2) / 2 + (Math.random() - 0.5) * 26;
+                ctx.lineTo(midX, midY);
+                ctx.lineTo(arc.x2 - cameraX, arc.y2);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // Draw Enemy Sonic Rings / Energy Bats
+            for (const ep of enemyProjectiles) {
+                ctx.save();
+                ctx.translate(ep.x - cameraX, ep.y);
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = ep.color;
+                ctx.strokeStyle = ep.color;
+                ctx.fillStyle = ep.color;
+                ctx.lineWidth = 3;
+                if (ep.isBat) {
+                    const flap = Math.sin(worldTime * 0.5) * 6;
+                    ctx.beginPath();
+                    ctx.moveTo(-10, flap);
+                    ctx.lineTo(0, 0);
+                    ctx.lineTo(10, flap);
+                    ctx.stroke();
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, ep.r, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+
+            // Draw Vampires & Abraham Lincoln
+            for (const v of vampires) v.draw(ctx, cameraX);
+            player.draw(ctx, cameraX);
+
+            // Draw Particle Fountains
+            for (const pt of particles) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, pt.alpha);
+                ctx.fillStyle = pt.color;
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = pt.color;
+                ctx.fillRect(pt.x - cameraX, pt.y, pt.size, pt.size);
+                ctx.restore();
+            }
+
+            // Draw Floating Score & Unicorn Popups
+            for (const sp of scorePopups) {
+                ctx.save();
+                ctx.globalAlpha = sp.life / sp.maxLife;
+                ctx.font = '900 14px Orbitron, sans-serif';
+                ctx.fillStyle = sp.color;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#000000';
+                ctx.textAlign = 'center';
+                ctx.fillText(sp.text, sp.x - cameraX, sp.y);
+                ctx.restore();
+            }
+
+            ctx.restore();
+            updateHUD();
+        }
+
+        /* ============================================================================
+         * 7. BULLETPROOF START / RESTART HANDLERS (MOBILE TOUCH, CLICK, KEYS & XBOX PAD)
+         * ============================================================================ */
+        const menuOverlayEl = document.getElementById('menu-overlay');
+        const startBtnEl = document.getElementById('start-btn');
+        const touchLayerEl = document.getElementById('touch-layer');
+
+        // Ensure touch-layer does not intercept taps while menu is open
+        touchLayerEl.style.pointerEvents = 'none';
+
+        // Bind pointerdown, touchstart, and click to both the Start button and entire Menu overlay
+        ['pointerdown', 'touchstart', 'click'].forEach(evtType => {
+            startBtnEl.addEventListener(evtType, window.startGame, { passive: false });
+            menuOverlayEl.addEventListener(evtType, window.startGame, { passive: false });
+        });
+
+        // Allow pressing Enter or Space to start from the Menu screen
+        window.addEventListener('keydown', e => {
+            if (gameState !== 'PLAYING' && (e.code === 'Enter' || e.code === 'Space')) {
+                e.preventDefault();
+                window.startGame();
+            }
+        });
+
+        // Render an initial preview frame behind the translucent Start Menu
+        function renderInitialBackdrop() {
+            renderEnvironment(ctx, 0);
+            player.draw(ctx, 0);
+        }
+        renderInitialBackdrop();
+
+        // Background Menu Poll so Xbox Controller 'A' (0) or 'Start' (9) starts the game immediately
+        function menuGamepadPoll() {
+            if (gameState !== 'PLAYING') {
+                const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+                for (let i = 0; i < pads.length; i++) {
+                    const gp = pads[i];
+                    if (gp) {
+                        updateGamepadHUD(true);
+                        if ((gp.buttons[0] && gp.buttons[0].pressed) || (gp.buttons[9] && gp.buttons[9].pressed)) {
+                            window.startGame();
+                            break;
+                        }
+                    }
+                }
+            }
+            requestAnimationFrame(menuGamepadPoll);
+        }
+        requestAnimationFrame(menuGamepadPoll);
+    </script>
+</body>
+</html>
